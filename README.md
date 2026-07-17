@@ -55,6 +55,8 @@ curl http://127.0.0.1:3100/api/admin/metrics
 
 默认告警阈值为单局 `$0.25`、单日 `$5`、单局 `120000` Token，以及至少 10 次调用后的 20% 小时错误率。设置 `USAGE_ALERT_WEBHOOK_URL` 可接收 JSON 告警；设置 `USAGE_ADMIN_TOKEN` 后，管理接口要求 `Authorization: Bearer <token>`。
 
+每日窗口按 `USAGE_TIME_ZONE` 切分，本机部署默认使用 `Asia/Shanghai`。
+
 内置价格表覆盖默认的 `gpt-5.4-mini`、`deepseek-v4-flash` 和 `deepseek-v4-pro`。切换其他模型时应在环境变量中显式提供输入、缓存输入和输出的每百万 Token 单价。
 
 ## 本机生产服务

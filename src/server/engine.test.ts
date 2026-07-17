@@ -54,6 +54,23 @@ describe('deterministic game engine', () => {
     expect(applied.state.activeEvent?.id).toBe('forbidden-phrase-1');
   });
 
+  it('ignores a model restriction false positive for clean dialogue', () => {
+    const state = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
+    const applied = applyDirectorDecision(
+      state,
+      {
+        ...neutralDecision,
+        restrictionHit: true,
+      },
+      '我看见你在饭桌上的难堪，这段关系对我很重要。',
+      1,
+    );
+
+    expect(applied.decision.restrictionHit).toBe(false);
+    expect(applied.state.flags.forbiddenPhraseCount).toBe(0);
+    expect(applied.state.activeEvent).toBeNull();
+  });
+
   it('locks the four ending gates from canonical state', () => {
     const base = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
 
@@ -63,7 +80,7 @@ describe('deterministic game engine', () => {
         round: 4,
         metrics: {
           trust: 80,
-          anger: 20,
+          anger: 40,
           vulnerability: 70,
           hiddenProgress: 3,
         },
@@ -111,6 +128,25 @@ describe('deterministic game engine', () => {
         round: 7,
       }),
     ).toBe('elevator-going-down');
+  });
+
+  it('keeps one reply after the first forbidden phrase', () => {
+    const base = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
+
+    expect(
+      selectEnding({
+        ...base,
+        round: 1,
+        metrics: {
+          ...base.metrics,
+          anger: 90,
+        },
+        flags: {
+          ...base.flags,
+          forbiddenPhraseCount: 1,
+        },
+      }),
+    ).toBeNull();
   });
 });
 

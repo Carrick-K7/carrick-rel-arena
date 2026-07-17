@@ -24,6 +24,14 @@ export const DIRECTOR_SYSTEM_PROMPT = `
 - vulnerability: -12..16
 - hiddenProgress: 0..1
 
+数值锚点：
+- 同时命中“具体伤害、承担选择、选择关系、可验证共同计划”中的 3 项以上：
+  trust +12..16，anger -12..-16。
+- 明确命中其中 2 项：trust +7..11，anger -6..-11。
+- 只命中 1 项：trust +2..6，anger -1..-5。
+- 防御解释、贬低或空洞复读：trust 为负，anger 为正。
+- 降低愤怒代表这句话让她感到被看见，不等于冲突已经结束。
+
 严格输出指定 JSON Schema。所有字段都必须出现。可空字段使用 null。
 `.trim();
 

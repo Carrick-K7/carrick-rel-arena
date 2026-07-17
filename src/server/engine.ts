@@ -50,8 +50,7 @@ export function applyDirectorDecision(
   round: number,
 ): AppliedDirectorResult {
   const deterministicRestriction = containsForbiddenPhrase(playerLine);
-  const restrictionHit =
-    deterministicRestriction || originalDecision.restrictionHit;
+  const restrictionHit = deterministicRestriction;
   const penalty = restrictionHit
     ? { trust: -7, anger: 6, vulnerability: -2 }
     : { trust: 0, anger: 0, vulnerability: 0 };
@@ -147,7 +146,11 @@ export function selectEnding(state: GameState): EndingId | null {
     return 'apology-allergen';
   }
 
-  if (state.metrics.trust <= 10 || state.metrics.anger >= 90) {
+  const relationshipCollapsed =
+    state.metrics.trust <= 10 || state.metrics.anger >= 90;
+  const firstRestrictionGetsAReply =
+    state.round === 1 && state.flags.forbiddenPhraseCount === 1;
+  if (relationshipCollapsed && !firstRestrictionGetsAReply) {
     return 'elevator-going-down';
   }
 
@@ -160,7 +163,7 @@ export function selectEnding(state: GameState): EndingId | null {
   if (
     state.round >= 4 &&
     state.metrics.trust >= 72 &&
-    state.metrics.anger <= 28 &&
+    state.metrics.anger <= 40 &&
     hiddenGoalComplete &&
     state.flags.forbiddenPhraseCount === 0
   ) {

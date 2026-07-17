@@ -28,6 +28,7 @@ export interface UsageConfig {
   errorRateLimit: number;
   errorRateMinimumCalls: number;
   maxMemoryEvents: number;
+  timeZone: string;
 }
 
 interface TrackedModelUsage extends ModelUsage {
@@ -101,6 +102,10 @@ export function readUsageConfig(): UsageConfig {
       process.env.USAGE_MAX_MEMORY_EVENTS,
       5_000,
     ),
+    timeZone:
+      cleanText(process.env.USAGE_TIME_ZONE) ??
+      Intl.DateTimeFormat().resolvedOptions().timeZone ??
+      'UTC',
   };
 }
 
@@ -123,7 +128,9 @@ export class UsageTracker {
         .slice(-50),
     );
     for (const alert of this.alerts) {
-      this.emittedAlertKeys.add(alertDedupeKey(alert));
+      this.emittedAlertKeys.add(
+        alertDedupeKey(alert, config.timeZone),
+      );
     }
   }
 
@@ -223,9 +230,16 @@ export class UsageTracker {
   }
 
   getSnapshot() {
-    const today = new Date().toISOString().slice(0, 10);
-    const todayEvents = this.events.filter((event) =>
-      event.occurredAt.startsWith(today),
+    const today = formatUsageDateKey(
+      new Date(),
+      this.config.timeZone,
+    );
+    const todayEvents = this.events.filter(
+      (event) =>
+        formatUsageDateKey(
+          new Date(event.occurredAt),
+          this.config.timeZone,
+        ) === today,
     );
     const modelEvents = todayEvents.filter(
       (event): event is TrackedModelUsage => event.kind === 'model',
@@ -238,6 +252,7 @@ export class UsageTracker {
     return {
       generatedAt: new Date().toISOString(),
       period: today,
+      timeZone: this.config.timeZone,
       totals: aggregateModelEvents(modelEvents, ttsEvents),
       byProvider: Object.fromEntries(
         providers.map((provider) => [
@@ -342,11 +357,17 @@ export class UsageTracker {
       );
     }
 
-    const today = event.occurredAt.slice(0, 10);
+    const today = formatUsageDateKey(
+      new Date(event.occurredAt),
+      this.config.timeZone,
+    );
     const todayModelEvents = this.events.filter(
       (candidate): candidate is TrackedModelUsage =>
         candidate.kind === 'model' &&
-        candidate.occurredAt.startsWith(today),
+        formatUsageDateKey(
+          new Date(candidate.occurredAt),
+          this.config.timeZone,
+        ) === today,
     );
     const dailyCost = knownCost(todayModelEvents);
     if (
@@ -633,7 +654,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function alertDedupeKey(alert: UsageAlert): string {
+function alertDedupeKey(
+  alert: UsageAlert,
+  timeZone: string,
+): string {
   if (alert.type === 'session_tokens') {
     return `session-tokens:${alert.sessionId}`;
   }
@@ -641,9 +665,28 @@ function alertDedupeKey(alert: UsageAlert): string {
     return `session-cost:${alert.sessionId}`;
   }
   if (alert.type === 'daily_cost') {
-    return `daily-cost:${alert.createdAt.slice(0, 10)}`;
+    return `daily-cost:${formatUsageDateKey(new Date(alert.createdAt), timeZone)}`;
   }
   return `provider-errors:${alert.createdAt.slice(0, 13)}`;
+}
+
+export function formatUsageDateKey(
+  date: Date,
+  timeZone: string,
+): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  if (!year || !month || !day) {
+    return date.toISOString().slice(0, 10);
+  }
+  return `${year}-${month}-${day}`;
 }
 
 function roundMoney(value: number): number {

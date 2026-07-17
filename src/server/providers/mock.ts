@@ -195,7 +195,7 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
   const shouldEnd =
     (context.round >= 4 &&
       projectedTrust >= 72 &&
-      projectedAnger <= 28 &&
+      projectedAnger <= 40 &&
       projectedProgress >= 3) ||
     projectedTrust <= 10 ||
     projectedAnger >= 90;

@@ -11,6 +11,7 @@ import { RemoteAiProvider } from './providers/remote.js';
 import type { ModelUsage } from './providers/types.js';
 import {
   estimateModelCostUsd,
+  formatUsageDateKey,
   UsageTracker,
   type UsageConfig,
 } from './usage.js';
@@ -26,6 +27,7 @@ const quietConfig: UsageConfig = {
   errorRateLimit: 1,
   errorRateMinimumCalls: 100,
   maxMemoryEvents: 100,
+  timeZone: 'Asia/Shanghai',
 };
 
 describe('usage accounting', () => {
@@ -99,6 +101,15 @@ describe('usage accounting', () => {
         'deterministic-v1',
       ).alertCount,
     ).toBe(1);
+  });
+
+  it('groups daily usage in the configured local time zone', () => {
+    expect(
+      formatUsageDateKey(
+        new Date('2026-07-17T22:00:00.000Z'),
+        'Asia/Shanghai',
+      ),
+    ).toBe('2026-07-18');
   });
 });
 
