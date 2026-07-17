@@ -17,17 +17,28 @@ import type {
   AiProvider,
   DirectorContext,
   JudgeContext,
+  ModelUsage,
+  StructuredCompletionRequest,
 } from './providers/types.js';
+import { ProviderError } from './providers/types.js';
 
 export class GameAgents {
-  constructor(private readonly provider: AiProvider) {}
+  constructor(
+    private readonly provider: AiProvider,
+    private readonly recordUsage: (usage: ModelUsage) => void = () =>
+      undefined,
+  ) {}
 
   get providerKind() {
     return this.provider.kind;
   }
 
+  get providerModel() {
+    return this.provider.model;
+  }
+
   direct(context: DirectorContext): Promise<DirectorDecision> {
-    return this.provider.generate({
+    return this.generate({
       agent: 'director',
       schemaName: 'director_decision',
       schema: DirectorDecisionSchema,
@@ -46,7 +57,7 @@ export class GameAgents {
   }
 
   act(context: ActorContext): Promise<ActorPerformance> {
-    return this.provider.generate({
+    return this.generate({
       agent: 'actor',
       schemaName: 'actor_performance',
       schema: ActorPerformanceSchema,
@@ -65,7 +76,7 @@ export class GameAgents {
   }
 
   judge(context: JudgeContext): Promise<JudgeVerdict> {
-    return this.provider.generate({
+    return this.generate({
       agent: 'judge',
       schemaName: 'judge_verdict',
       schema: JudgeVerdictSchema,
@@ -84,5 +95,20 @@ export class GameAgents {
       context,
       maxOutputTokens: 1000,
     });
+  }
+
+  private async generate<T>(
+    request: StructuredCompletionRequest<T>,
+  ): Promise<T> {
+    try {
+      const result = await this.provider.generate(request);
+      this.recordUsage(result.usage);
+      return result.data;
+    } catch (error) {
+      if (error instanceof ProviderError && error.usage) {
+        this.recordUsage(error.usage);
+      }
+      throw error;
+    }
   }
 }

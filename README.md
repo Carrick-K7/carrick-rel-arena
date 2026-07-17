@@ -11,6 +11,7 @@
 - 由情绪和动作数据驱动的 SVG 动态立绘。
 - 开场、转折、结局三类生成式短视频 Hook。
 - `mock`、`openai`、`deepseek` 三种文本模型模式。
+- 每个 Agent 调用的 Token、缓存、延迟、重试、成本估算和阈值告警。
 - 内存会话和自动过期机制，每局关系状态保持独立。
 
 ## 本地运行
@@ -40,6 +41,40 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
 DeepSeek 负责文本时，可额外配置 `OPENAI_API_KEY` 生成角色语音。缺少 OpenAI Key 时，客户端使用系统语音合成。
+
+ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发，不能充当这个服务的 API 凭据。真实 GPT 模式需要在 OpenAI API Platform 单独配置 `OPENAI_API_KEY`。未配置 Key 时，`mock` 仍可运行完整游戏、语音回退和全部测试。
+
+## 用量与告警
+
+每局底部和结算页显示模型调用次数、Token 与文字模型估算成本。服务端只把技术计量写入 JSONL，不写玩家或角色正文：
+
+```bash
+curl http://127.0.0.1:3100/api/admin/usage
+curl http://127.0.0.1:3100/api/admin/metrics
+```
+
+默认告警阈值为单局 `$0.25`、单日 `$5`、单局 `120000` Token，以及至少 10 次调用后的 20% 小时错误率。设置 `USAGE_ALERT_WEBHOOK_URL` 可接收 JSON 告警；设置 `USAGE_ADMIN_TOKEN` 后，管理接口要求 `Authorization: Bearer <token>`。
+
+内置价格表覆盖默认的 `gpt-5.4-mini`、`deepseek-v4-flash` 和 `deepseek-v4-pro`。切换其他模型时应在环境变量中显式提供输入、缓存输入和输出的每百万 Token 单价。
+
+## 本机生产服务
+
+仓库包含 [systemd 单元](deploy/relationship-arena.service) 和 [生产环境模板](deploy/relationship-arena.env.example)。构建后安装到本机：
+
+```bash
+sudo install -d -m 0750 /etc/relationship-arena
+sudo install -m 0640 deploy/relationship-arena.env.example /etc/relationship-arena/relationship-arena.env
+sudo install -m 0644 deploy/relationship-arena.service /etc/systemd/system/relationship-arena.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now relationship-arena.service
+curl -fsS http://127.0.0.1:3100/api/health
+```
+
+服务只监听回环地址。对已部署构建运行浏览器测试：
+
+```bash
+npm run test:e2e:deployed
+```
 
 ## 验证
 

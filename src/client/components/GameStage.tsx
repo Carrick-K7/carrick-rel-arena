@@ -298,6 +298,9 @@ export function GameStage({
         )}
         <p className="ai-disclosure">
           黎岚由 AI 扮演 · 语音为 AI 合成 · 本局结束后关系状态不延续
+          <span data-testid="usage-meter">
+            {usageLabel(session)}
+          </span>
         </p>
       </footer>
     </main>
@@ -356,4 +359,13 @@ function videoHookLabel(kind: 'opening' | 'turning_point' | 'ending') {
   if (kind === 'opening') return '开场短视频 Hook';
   if (kind === 'ending') return '结局短视频 Hook';
   return '转折短视频 Hook';
+}
+
+function usageLabel(session: PublicSession): string {
+  const { usage } = session;
+  const cost =
+    usage.estimatedCostUsd === null
+      ? '成本待定'
+      : `$${usage.estimatedCostUsd.toFixed(4)}`;
+  return `模型 ${usage.calls} 次 · ${usage.totalTokens.toLocaleString()} tokens · ${cost}`;
 }

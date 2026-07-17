@@ -77,6 +77,7 @@ export function App() {
         void speakLine(
           nextSession.lastPerformance.line,
           nextSession.lastPerformance.tone,
+          nextSession.state.sessionId,
         );
       }
     } catch (startError) {
@@ -106,6 +107,7 @@ export function App() {
         void speakLine(
           result.session.lastPerformance.line,
           result.session.lastPerformance.tone,
+          result.session.state.sessionId,
         );
       }
       if (result.session.state.phase === 'result') {
@@ -130,6 +132,7 @@ export function App() {
       void speakLine(
         session.lastPerformance.line,
         session.lastPerformance.tone,
+        session.state.sessionId,
       );
     }
   }

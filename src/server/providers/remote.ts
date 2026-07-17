@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type {
   AiProvider,
+  ModelUsage,
   ProviderKind,
   StructuredCompletionRequest,
 } from './types.js';
@@ -26,6 +27,18 @@ interface ResponsesPayload {
   error?: {
     message?: string;
   };
+  usage?: {
+    input_tokens?: number;
+    input_tokens_details?: {
+      cached_tokens?: number;
+      cache_write_tokens?: number;
+    };
+    output_tokens?: number;
+    output_tokens_details?: {
+      reasoning_tokens?: number;
+    };
+    total_tokens?: number;
+  };
 }
 
 interface ChatPayload {
@@ -37,12 +50,36 @@ interface ChatPayload {
   error?: {
     message?: string;
   };
+  usage?: {
+    completion_tokens?: number;
+    prompt_tokens?: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_cache_miss_tokens?: number;
+    total_tokens?: number;
+    completion_tokens_details?: {
+      reasoning_tokens?: number;
+    };
+  };
+}
+
+interface TokenUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+}
+
+interface RemoteCallResult {
+  text: string;
+  usage: TokenUsage | null;
 }
 
 export class RemoteAiProvider implements AiProvider {
   readonly kind: Exclude<ProviderKind, 'mock'>;
   private readonly apiKey: string;
-  private readonly model: string;
+  readonly model: string;
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
 
@@ -58,34 +95,67 @@ export class RemoteAiProvider implements AiProvider {
     this.timeoutMs = options.timeoutMs ?? 25_000;
   }
 
-  async generate<T>(request: StructuredCompletionRequest<T>): Promise<T> {
+  async generate<T>(request: StructuredCompletionRequest<T>) {
+    const startedAt = performance.now();
     let lastError = 'unknown structured output error';
+    let attempts = 0;
+    let measured = false;
+    const tokenUsage = emptyTokenUsage();
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      attempts = attempt + 1;
       try {
-        const raw =
+        const call =
           this.kind === 'openai'
             ? await this.callOpenAi(request, attempt)
             : await this.callDeepSeek(request, attempt);
-        const parsedJson = JSON.parse(stripJsonFence(raw)) as unknown;
+        if (call.usage) {
+          measured = true;
+          addTokenUsage(tokenUsage, call.usage);
+        }
+        const parsedJson = JSON.parse(stripJsonFence(call.text)) as unknown;
         const parsed = request.schema.safeParse(parsedJson);
-        if (parsed.success) return parsed.data;
+        if (parsed.success) {
+          return {
+            data: parsed.data,
+            usage: this.createUsage(
+              request,
+              tokenUsage,
+              attempts,
+              measured,
+              startedAt,
+              true,
+              null,
+            ),
+          };
+        }
         lastError = z.prettifyError(parsed.error);
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
       }
     }
 
+    const usage = this.createUsage(
+      request,
+      tokenUsage,
+      attempts,
+      measured,
+      startedAt,
+      false,
+      'STRUCTURED_OUTPUT_FAILED',
+    );
     throw new ProviderError(
       `${request.agent} structured response failed: ${lastError}`,
       this.kind,
+      true,
+      usage,
     );
   }
 
   private async callOpenAi<T>(
     request: StructuredCompletionRequest<T>,
     attempt: number,
-  ): Promise<string> {
+  ): Promise<RemoteCallResult> {
     const schema = z.toJSONSchema(request.schema, {
       target: 'draft-7',
       unrepresentable: 'any',
@@ -117,21 +187,22 @@ export class RemoteAiProvider implements AiProvider {
     if (payload.error?.message) {
       throw new Error(payload.error.message);
     }
+    const usage = parseOpenAiUsage(payload.usage);
     const direct = payload.output_text?.trim();
-    if (direct) return direct;
+    if (direct) return { text: direct, usage };
 
     const outputText = payload.output
       ?.flatMap((item) => item.content ?? [])
       .find((content) => content.type === 'output_text' && content.text)
       ?.text?.trim();
     if (!outputText) throw new Error('OpenAI returned no output text');
-    return outputText;
+    return { text: outputText, usage };
   }
 
   private async callDeepSeek<T>(
     request: StructuredCompletionRequest<T>,
     attempt: number,
-  ): Promise<string> {
+  ): Promise<RemoteCallResult> {
     const jsonShape = z.toJSONSchema(request.schema, {
       target: 'draft-7',
       unrepresentable: 'any',
@@ -168,7 +239,34 @@ export class RemoteAiProvider implements AiProvider {
     }
     const content = payload.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error('DeepSeek returned empty JSON content');
-    return content;
+    return {
+      text: content,
+      usage: parseDeepSeekUsage(payload.usage),
+    };
+  }
+
+  private createUsage<T>(
+    request: StructuredCompletionRequest<T>,
+    tokens: TokenUsage,
+    attempts: number,
+    measured: boolean,
+    startedAt: number,
+    success: boolean,
+    errorCode: string | null,
+  ): ModelUsage {
+    return {
+      provider: this.kind,
+      model: this.model,
+      agent: request.agent,
+      sessionId: request.context.state.sessionId,
+      occurredAt: new Date().toISOString(),
+      success,
+      attempts,
+      measured,
+      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      ...tokens,
+      errorCode,
+    };
   }
 
   private async fetchJson(
@@ -198,6 +296,76 @@ export class RemoteAiProvider implements AiProvider {
       throw new Error(`${this.kind} returned invalid HTTP JSON`);
     }
   }
+}
+
+function emptyTokenUsage(): TokenUsage {
+  return {
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    totalTokens: 0,
+  };
+}
+
+function addTokenUsage(target: TokenUsage, addition: TokenUsage) {
+  target.inputTokens += addition.inputTokens;
+  target.cachedInputTokens += addition.cachedInputTokens;
+  target.cacheWriteTokens += addition.cacheWriteTokens;
+  target.outputTokens += addition.outputTokens;
+  target.reasoningTokens += addition.reasoningTokens;
+  target.totalTokens += addition.totalTokens;
+}
+
+function parseOpenAiUsage(
+  usage: ResponsesPayload['usage'],
+): TokenUsage | null {
+  if (!usage) return null;
+  const inputTokens = nonNegativeInt(usage.input_tokens);
+  const outputTokens = nonNegativeInt(usage.output_tokens);
+  return {
+    inputTokens,
+    cachedInputTokens: nonNegativeInt(
+      usage.input_tokens_details?.cached_tokens,
+    ),
+    cacheWriteTokens: nonNegativeInt(
+      usage.input_tokens_details?.cache_write_tokens,
+    ),
+    outputTokens,
+    reasoningTokens: nonNegativeInt(
+      usage.output_tokens_details?.reasoning_tokens,
+    ),
+    totalTokens:
+      nonNegativeInt(usage.total_tokens) || inputTokens + outputTokens,
+  };
+}
+
+function parseDeepSeekUsage(
+  usage: ChatPayload['usage'],
+): TokenUsage | null {
+  if (!usage) return null;
+  const inputTokens = nonNegativeInt(usage.prompt_tokens);
+  const outputTokens = nonNegativeInt(usage.completion_tokens);
+  return {
+    inputTokens,
+    cachedInputTokens: nonNegativeInt(
+      usage.prompt_cache_hit_tokens,
+    ),
+    cacheWriteTokens: 0,
+    outputTokens,
+    reasoningTokens: nonNegativeInt(
+      usage.completion_tokens_details?.reasoning_tokens,
+    ),
+    totalTokens:
+      nonNegativeInt(usage.total_tokens) || inputTokens + outputTokens,
+  };
+}
+
+function nonNegativeInt(value: number | undefined): number {
+  return Number.isFinite(value)
+    ? Math.max(0, Math.round(value ?? 0))
+    : 0;
 }
 
 function stripJsonFence(value: string): string {

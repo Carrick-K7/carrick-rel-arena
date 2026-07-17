@@ -4,11 +4,15 @@ import { requestSpeech } from './api.js';
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 
-export async function speakLine(text: string, tone: Tone): Promise<void> {
+export async function speakLine(
+  text: string,
+  tone: Tone,
+  sessionId: string | null,
+): Promise<void> {
   stopSpeaking();
 
   try {
-    const audioBlob = await requestSpeech(text, tone);
+    const audioBlob = await requestSpeech(text, tone, sessionId);
     if (audioBlob) {
       currentUrl = URL.createObjectURL(audioBlob);
       currentAudio = new Audio(currentUrl);

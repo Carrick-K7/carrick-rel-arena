@@ -48,9 +48,36 @@ export interface StructuredCompletionRequest<T> {
   maxOutputTokens: number;
 }
 
+export interface ModelUsage {
+  provider: ProviderKind;
+  model: string;
+  agent: AgentName;
+  sessionId: string;
+  occurredAt: string;
+  success: boolean;
+  attempts: number;
+  measured: boolean;
+  latencyMs: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  errorCode: string | null;
+}
+
+export interface StructuredCompletionResult<T> {
+  data: T;
+  usage: ModelUsage;
+}
+
 export interface AiProvider {
   readonly kind: ProviderKind;
-  generate<T>(request: StructuredCompletionRequest<T>): Promise<T>;
+  readonly model: string;
+  generate<T>(
+    request: StructuredCompletionRequest<T>,
+  ): Promise<StructuredCompletionResult<T>>;
 }
 
 export class ProviderError extends Error {
@@ -58,6 +85,7 @@ export class ProviderError extends Error {
     message: string,
     public readonly provider: ProviderKind,
     public readonly retryable = true,
+    public readonly usage: ModelUsage | null = null,
   ) {
     super(message);
     this.name = 'ProviderError';

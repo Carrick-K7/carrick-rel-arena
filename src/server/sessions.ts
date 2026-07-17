@@ -8,6 +8,7 @@ import {
   type GameState,
   type JudgeVerdict,
   type PublicSession,
+  type SessionUsage,
   type TranscriptEntry,
 } from '../shared/contracts.js';
 import { GameAgents } from './agents.js';
@@ -24,6 +25,7 @@ import {
   OPENING_PERFORMANCE,
   createEndingVideoEvent,
 } from './scenario.js';
+import type { UsageTracker } from './usage.js';
 
 interface StoredSession {
   state: GameState;
@@ -52,6 +54,7 @@ export class GameSessionService {
   constructor(
     private readonly agents: GameAgents,
     ttlMinutes = 120,
+    private readonly usageTracker: UsageTracker | null = null,
   ) {
     this.ttlMs = Math.max(5, ttlMinutes) * 60_000;
     const timer = setInterval(() => this.deleteExpired(), 60_000);
@@ -236,6 +239,16 @@ export class GameSessionService {
       transcript: stored.transcript,
       lastPerformance: stored.lastPerformance,
       verdict: stored.verdict,
+      usage:
+        this.usageTracker?.getSessionSummary(
+          stored.state.sessionId,
+          this.agents.providerKind,
+          this.agents.providerModel,
+        ) ??
+        emptyUsage(
+          this.agents.providerKind,
+          this.agents.providerModel,
+        ),
       expiresAt: stored.expiresAt.toISOString(),
     });
   }
@@ -248,4 +261,28 @@ export class GameSessionService {
       }
     }
   }
+}
+
+function emptyUsage(
+  provider: SessionUsage['provider'],
+  model: string,
+): SessionUsage {
+  return {
+    provider,
+    model,
+    calls: 0,
+    successfulCalls: 0,
+    failedCalls: 0,
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    totalTokens: 0,
+    estimatedCostUsd: provider === 'mock' ? 0 : null,
+    tokenMeasurement: 'none',
+    ttsRequests: 0,
+    ttsCharacters: 0,
+    alertCount: 0,
+  };
 }

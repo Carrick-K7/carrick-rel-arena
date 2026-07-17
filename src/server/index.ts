@@ -25,6 +25,10 @@ import {
   readTtsConfig,
   synthesizeSpeech,
 } from './tts.js';
+import {
+  readUsageConfig,
+  UsageTracker,
+} from './usage.js';
 
 try {
   process.loadEnvFile();
@@ -35,11 +39,20 @@ try {
 
 const providerConfig = readProviderConfig();
 const provider = createAiProvider(providerConfig);
-const agents = new GameAgents(provider);
+const usageTracker = new UsageTracker(readUsageConfig());
+const agents = new GameAgents(
+  provider,
+  (usage) => usageTracker.recordModel(usage),
+);
 const ttlMinutes = parsePositiveInt(process.env.SESSION_TTL_MINUTES, 120);
-const sessions = new GameSessionService(agents, ttlMinutes);
+const sessions = new GameSessionService(
+  agents,
+  ttlMinutes,
+  usageTracker,
+);
 const ttsConfig = readTtsConfig();
 const port = parsePositiveInt(process.env.PORT, 3100);
+const host = process.env.HOST?.trim() || '127.0.0.1';
 const isProduction = process.env.NODE_ENV === 'production';
 
 const capabilities = CapabilitiesSchema.parse({
@@ -49,6 +62,8 @@ const capabilities = CapabilitiesSchema.parse({
   ttsProvider: ttsConfig.apiKey ? 'openai' : 'browser',
   videoHooks: 'reserved',
   sessionStorage: 'memory-ttl',
+  usageTracking: 'enabled',
+  usageAlerting: usageTracker.alertingEnabled,
 });
 
 const app = express();
@@ -68,6 +83,8 @@ app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
     provider: provider.kind,
+    model: provider.model,
+    usageAlerts: usageTracker.getSnapshot().alerts.length,
     now: new Date().toISOString(),
   });
 });
@@ -106,15 +123,46 @@ app.post(
 const SpeechInputSchema = z.strictObject({
   text: z.string().trim().min(1).max(160),
   tone: ToneSchema,
+  sessionId: z.string().uuid().nullable().optional(),
 });
 
 app.post('/api/speech', speechLimit, async (request, response) => {
   const input = SpeechInputSchema.parse(request.body);
-  const audio = await synthesizeSpeech(
-    ttsConfig,
-    input.text,
-    input.tone,
-  );
+  const startedAt = performance.now();
+  let audio: Buffer | null;
+  try {
+    audio = await synthesizeSpeech(
+      ttsConfig,
+      input.text,
+      input.tone,
+    );
+    usageTracker.recordTts({
+      provider: audio ? 'openai' : 'browser',
+      model: audio ? ttsConfig.model : 'web-speech-api',
+      sessionId: input.sessionId ?? null,
+      success: true,
+      latencyMs: Math.max(
+        0,
+        Math.round(performance.now() - startedAt),
+      ),
+      characters: input.text.length,
+      errorCode: null,
+    });
+  } catch (error) {
+    usageTracker.recordTts({
+      provider: ttsConfig.apiKey ? 'openai' : 'browser',
+      model: ttsConfig.apiKey ? ttsConfig.model : 'web-speech-api',
+      sessionId: input.sessionId ?? null,
+      success: false,
+      latencyMs: Math.max(
+        0,
+        Math.round(performance.now() - startedAt),
+      ),
+      characters: input.text.length,
+      errorCode: 'TTS_FAILED',
+    });
+    throw error;
+  }
   if (!audio) {
     response.status(204).end();
     return;
@@ -123,6 +171,24 @@ app.post('/api/speech', speechLimit, async (request, response) => {
   response.setHeader('Cache-Control', 'private, no-store');
   response.send(audio);
 });
+
+app.get(
+  '/api/admin/usage',
+  requireUsageAdmin,
+  (_request, response) => {
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.json(usageTracker.getSnapshot());
+  },
+);
+
+app.get(
+  '/api/admin/metrics',
+  requireUsageAdmin,
+  (_request, response) => {
+    response.type('text/plain; version=0.0.4');
+    response.send(usageTracker.toPrometheus());
+  },
+);
 
 app.use('/api', (_request, response) => {
   response.status(404).json({
@@ -218,11 +284,37 @@ const errorHandler: ErrorRequestHandler = (
 };
 app.use(errorHandler);
 
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, host, () => {
   console.log(
-    `关系修罗场 running at http://127.0.0.1:${port} [${provider.kind}]`,
+    `关系修罗场 running at http://${host}:${port} [${provider.kind}:${provider.model}]`,
   );
 });
+
+function requireUsageAdmin(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+) {
+  const expected = usageTracker.adminToken;
+  if (!expected) {
+    next();
+    return;
+  }
+  const authorization = request.get('authorization') ?? '';
+  const supplied = authorization.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length)
+    : request.get('x-usage-admin-token') ?? '';
+  if (supplied !== expected) {
+    response.status(401).json({
+      error: {
+        code: 'USAGE_ADMIN_UNAUTHORIZED',
+        message: '用量管理凭据无效。',
+      },
+    });
+    return;
+  }
+  next();
+}
 
 function createRateLimit(limit: number, windowMs: number) {
   const buckets = new Map<string, number[]>();

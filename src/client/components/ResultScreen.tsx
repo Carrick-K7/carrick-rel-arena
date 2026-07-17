@@ -65,6 +65,11 @@ export function ResultScreen({
           {session.state.activeEvent?.videoCue && (
             <small>◉ 结局生成式短视频接口已预留</small>
           )}
+          <small data-testid="result-usage">
+            ◫ 本局模型 {session.usage.calls} 次 ·{' '}
+            {session.usage.totalTokens.toLocaleString()} tokens ·{' '}
+            {formatCost(session.usage.estimatedCostUsd)}
+          </small>
         </article>
 
         <div className="score-card">
@@ -173,4 +178,8 @@ function endingTitle(endingId: NonNullable<PublicSession['state']['endingId']>) 
     'apology-allergen': '道歉过敏原',
   };
   return titles[endingId];
+}
+
+function formatCost(cost: number | null): string {
+  return cost === null ? '成本待定' : `估算 $${cost.toFixed(4)}`;
 }

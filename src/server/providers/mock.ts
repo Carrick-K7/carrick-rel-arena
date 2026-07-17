@@ -36,8 +36,10 @@ const HUMOR_PATTERN = /早餐|煎蛋|豆浆|咖啡|行李箱|车费/;
 
 export class MockAiProvider implements AiProvider {
   readonly kind = 'mock' as const;
+  readonly model = 'deterministic-v1';
 
-  async generate<T>(request: StructuredCompletionRequest<T>): Promise<T> {
+  async generate<T>(request: StructuredCompletionRequest<T>) {
+    const startedAt = Date.now();
     let output: DirectorDecision | ActorPerformance | JudgeVerdict;
 
     if (request.agent === 'director') {
@@ -48,8 +50,38 @@ export class MockAiProvider implements AiProvider {
       output = mockJudge(request.context as JudgeContext);
     }
 
-    return request.schema.parse(output);
+    const data = request.schema.parse(output);
+    const inputTokens = estimateTokens(
+      `${request.system}${JSON.stringify(request.input)}`,
+    );
+    const outputTokens = estimateTokens(JSON.stringify(data));
+
+    return {
+      data,
+      usage: {
+        provider: this.kind,
+        model: this.model,
+        agent: request.agent,
+        sessionId: request.context.state.sessionId,
+        occurredAt: new Date().toISOString(),
+        success: true,
+        attempts: 1,
+        measured: false,
+        latencyMs: Math.max(0, Date.now() - startedAt),
+        inputTokens,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens,
+        reasoningTokens: 0,
+        totalTokens: inputTokens + outputTokens,
+        errorCode: null,
+      },
+    };
   }
+}
+
+function estimateTokens(value: string): number {
+  return Math.max(1, Math.ceil(value.length / 3));
 }
 
 export function mockDirector(context: DirectorContext): DirectorDecision {

@@ -33,6 +33,8 @@ Express Orchestrator
   │    ├─ OpenAI Responses API
   │    └─ DeepSeek Chat Completions
   ├─ OpenAI TTS adapter
+  ├─ Usage ledger + pricing estimator
+  ├─ Budget/error alerts + optional webhook
   └─ Video hook adapter (reserved)
 ```
 
@@ -203,8 +205,12 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 | GET | `/api/sessions/:id` | 恢复当前内存会话 |
 | POST | `/api/sessions/:id/turns` | 提交玩家台词并完成一回合 |
 | POST | `/api/speech` | 把角色台词转换为 AI 音频 |
+| GET | `/api/admin/usage` | 当日模型/TTS 聚合、阈值与最近告警 |
+| GET | `/api/admin/metrics` | Prometheus 文本指标 |
 
 会话使用 UUID，正文保存在进程内存，默认 120 分钟后过期。生产阶段可将会话存储替换为带 TTL 的 Redis。
+
+用量日志采用 JSONL，只包含 UUID、Provider、模型、Agent、Token、缓存、延迟、重试、成功状态和成本估算，不包含 Prompt、台词或完整转录。默认写入 `var/usage-events.jsonl`；告警独立写入 `var/usage-alerts.jsonl`。服务启动时恢复最近 5,000 条技术事件和最近 50 条告警，使当日统计可跨进程重启。真实供应商返回的 Token 标记为 `provider_reported`，Mock 采用字符数近似并标记为 `estimated`。
 
 ## 8. 模型与成本可行性
 
@@ -222,6 +228,8 @@ ChatGPT 订阅适合产品开发期间使用 Codex 和 ChatGPT。应用运行时
 
 按 7 轮、15 次文本调用、约 45K 输入 Token 与 3.4K 输出 Token 估算，`gpt-5.4-mini` 文本成本约 **$0.05/局**。语音成本单独统计，实际值以调用量和官方账单为准。
 
+OpenAI Responses API 的用量读取 `usage.input_tokens`、`usage.input_tokens_details.cached_tokens`、可用时的 `cache_write_tokens`、`usage.output_tokens` 和推理明细。缓存写入 Token 按官方规则单独计价；切换不在内置价格表的模型时必须通过环境变量提供价格，系统会在价格缺失时显示“成本待定”，避免给出错误数字。
+
 ### DeepSeek API
 
 DeepSeek API 提供 OpenAI 兼容的 Chat Completions 接口。2026-07-17 的公开模型是 `deepseek-v4-flash` 与 `deepseek-v4-pro`；`deepseek-chat` 和 `deepseek-reasoner` 计划于 2026-07-24 停用。[快速开始](https://api-docs.deepseek.com/)
@@ -235,6 +243,8 @@ DeepSeek 文本方案搭配浏览器系统语音或 OpenAI TTS。首版 Provider
 1. 公开精品体验使用 OpenAI 文本 + OpenAI TTS。
 2. 回归评测和成本压力测试使用 DeepSeek V4 Flash。
 3. 每周对相同 30 条轨迹比较角色一致性、Schema 成功率、延迟和结局合理性。
+
+DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`、`completion_tokens`、`reasoning_tokens` 和 `total_tokens`。缓存命中量按 DeepSeek 缓存单价计算。
 
 ## 9. 前后端技术选型
 
@@ -274,11 +284,17 @@ relationship-arena/
       prompts.ts
       scenario.ts
       sessions.ts
+      usage.ts
       index.ts
     shared/
       contracts.ts
   tests/
     game.spec.ts
+  deploy/
+    relationship-arena.service
+    relationship-arena.env.example
+  var/
+    .gitkeep
   AGENTS.md
   .env.example
   index.html
@@ -298,13 +314,14 @@ relationship-arena/
 - 完成三 Agent 接口、Mock、OpenAI、DeepSeek Provider。
 - 完成文本输入、可选语音输入、AI TTS、浏览器语音回退。
 - 完成 SVG 动态立绘、状态 HUD、结算复盘和分享文本。
+- 完成逐局与逐日用量统计、价格估算、JSONL、Prometheus 与四类阈值告警。
 - 完成单元测试、生产构建与端到端测试。
 
 ### Phase 1：封闭试玩
 
 - 建立 30～50 条固定对话轨迹评测集。
 - 加入 SSE 阶段进度与台词流式展示。
-- 记录匿名耗时、Token、结局、重试和解析失败指标。
+- 建立匿名结局分布与 Prompt 版本指标，现有耗时、Token、重试和失败指标作为基线。
 - 增加结果分享图与同局挑战链接。
 - 部署 Redis TTL、IP 限流和成本熔断。
 

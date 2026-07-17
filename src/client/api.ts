@@ -60,13 +60,14 @@ export async function playTurn(
 export async function requestSpeech(
   text: string,
   tone: Tone,
+  sessionId: string | null,
 ): Promise<Blob | null> {
   const response = await fetch('/api/speech', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text, tone }),
+    body: JSON.stringify({ text, tone, sessionId }),
   });
 
   if (response.status === 204) return null;

@@ -26,6 +26,9 @@ test('plays the authored high-quality path into the S ending', async ({
         String(7 - round),
       );
       await expect(page.getByTestId('dialogue-input')).toBeEnabled();
+      await expect(page.getByTestId('usage-meter')).toContainText(
+        `模型 ${round * 2} 次`,
+      );
     }
   }
 
@@ -33,6 +36,23 @@ test('plays the authored high-quality path into the S ending', async ({
   await expect(page.getByTestId('result-screen')).toContainText('早餐还热');
   await expect(page.getByTestId('result-screen')).toContainText(
     '人形关系补丁',
+  );
+  await expect(page.getByTestId('result-usage')).toContainText(
+    '本局模型 9 次',
+  );
+
+  const usage = await page.request.get('/api/admin/usage');
+  expect(usage.ok()).toBe(true);
+  const usageJson = (await usage.json()) as {
+    totals: { calls: number; totalTokens: number };
+  };
+  expect(usageJson.totals.calls).toBeGreaterThanOrEqual(9);
+  expect(usageJson.totals.totalTokens).toBeGreaterThan(0);
+
+  const metrics = await page.request.get('/api/admin/metrics');
+  expect(metrics.ok()).toBe(true);
+  await expect(metrics.text()).resolves.toContain(
+    'relationship_arena_model_calls_total',
   );
 });
 

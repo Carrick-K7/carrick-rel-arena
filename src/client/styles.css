@@ -159,6 +159,13 @@ figure {
   box-shadow: 0 0 12px rgba(113, 209, 186, 0.75);
 }
 
+.ai-disclosure span {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--faint);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
 .briefing-hero {
   display: grid;
   min-height: calc(100vh - 136px);

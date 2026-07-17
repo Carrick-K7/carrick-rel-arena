@@ -195,12 +195,36 @@ export const ScenarioBriefingSchema = z.strictObject({
   maxRounds: z.literal(7),
 });
 
+export const SessionUsageSchema = z.strictObject({
+  provider: z.enum(['mock', 'openai', 'deepseek']),
+  model: z.string().min(1),
+  calls: z.number().int().min(0),
+  successfulCalls: z.number().int().min(0),
+  failedCalls: z.number().int().min(0),
+  inputTokens: z.number().int().min(0),
+  cachedInputTokens: z.number().int().min(0),
+  cacheWriteTokens: z.number().int().min(0),
+  outputTokens: z.number().int().min(0),
+  reasoningTokens: z.number().int().min(0),
+  totalTokens: z.number().int().min(0),
+  estimatedCostUsd: z.number().min(0).nullable(),
+  tokenMeasurement: z.enum([
+    'none',
+    'estimated',
+    'provider_reported',
+  ]),
+  ttsRequests: z.number().int().min(0),
+  ttsCharacters: z.number().int().min(0),
+  alertCount: z.number().int().min(0),
+});
+
 export const PublicSessionSchema = z.strictObject({
   briefing: ScenarioBriefingSchema,
   state: GameStateSchema,
   transcript: z.array(TranscriptEntrySchema),
   lastPerformance: ActorPerformanceSchema,
   verdict: JudgeVerdictSchema.nullable(),
+  usage: SessionUsageSchema,
   expiresAt: z.string().datetime(),
 });
 
@@ -224,6 +248,8 @@ export const CapabilitiesSchema = z.strictObject({
   ttsProvider: z.enum(['openai', 'browser']),
   videoHooks: z.literal('reserved'),
   sessionStorage: z.literal('memory-ttl'),
+  usageTracking: z.literal('enabled'),
+  usageAlerting: z.boolean(),
 });
 
 export type GamePhase = z.infer<typeof GamePhaseSchema>;
@@ -242,5 +268,6 @@ export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type JudgeVerdict = z.infer<typeof JudgeVerdictSchema>;
 export type ScenarioBriefing = z.infer<typeof ScenarioBriefingSchema>;
+export type SessionUsage = z.infer<typeof SessionUsageSchema>;
 export type PublicSession = z.infer<typeof PublicSessionSchema>;
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
