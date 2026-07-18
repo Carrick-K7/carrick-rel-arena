@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   Capabilities,
   Gender,
+  InputMode,
+  MediaGeneration,
+  OutputMode,
   PublicSession,
   ScenarioBriefing,
   ScenarioId,
@@ -9,16 +12,25 @@ import type {
 } from '../shared/contracts.js';
 import {
   ApiError,
+  createMediaGeneration,
   createSession,
   getBriefing,
   getCapabilities,
+  getMediaGeneration,
   getScenarios,
   playTurn,
+  verifyMediaAccess,
 } from './api.js';
 import { Briefing } from './components/Briefing.js';
 import { GameStage } from './components/GameStage.js';
+import { ModalitySettings } from './components/ModalitySettings.js';
 import { ResultScreen } from './components/ResultScreen.js';
 import { ScenarioSelect } from './components/ScenarioSelect.js';
+import {
+  loadModalities,
+  saveModalities,
+  type ModalityPreferences,
+} from './modalities.js';
 import {
   clearProgress,
   loadProgress,
@@ -34,6 +46,11 @@ import {
 } from './speech.js';
 
 type Screen = 'select' | 'briefing' | 'playing' | 'result';
+interface DisplayedMedia {
+  key: string;
+  kind: 'image' | 'video';
+  title: string;
+}
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('select');
@@ -49,12 +66,23 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(readVoicePreference);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modalities, setModalities] = useState(loadModalities);
+  const [mediaAccessKey, setMediaAccessKey] = useState('');
+  const [mediaUnlocked, setMediaUnlocked] = useState(false);
+  const [mediaByKey, setMediaByKey] = useState<
+    Record<string, MediaGeneration>
+  >({});
+  const [displayedMedia, setDisplayedMedia] =
+    useState<DisplayedMedia | null>(null);
   const stopRecognitionRef = useRef<(() => void) | null>(null);
+  const requestedMediaRef = useRef(new Set<string>());
+  const mountedRef = useRef(true);
   const speechInputSupported =
     typeof window !== 'undefined' && supportsSpeechInput();
 
   useEffect(() => {
+    mountedRef.current = true;
     let active = true;
     Promise.all([getScenarios(), getCapabilities()])
       .then(([nextScenarios, nextCapabilities]) => {
@@ -68,6 +96,7 @@ export function App() {
       });
     return () => {
       active = false;
+      mountedRef.current = false;
       stopSpeaking();
       stopRecognitionRef.current?.();
     };
@@ -76,6 +105,87 @@ export function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
   }, [screen]);
+
+  useEffect(() => {
+    const cue = session?.state.activeEvent?.videoCue;
+    const output = modalities.output;
+    if (
+      !session ||
+      !cue ||
+      (output !== 'image' && output !== 'video') ||
+      !mediaUnlocked ||
+      !mediaAccessKey
+    ) {
+      return;
+    }
+
+    const requestKey = mediaKey(
+      session.state.sessionId,
+      cue.hookId,
+      output,
+    );
+    if (requestedMediaRef.current.has(requestKey)) {
+      return;
+    }
+    requestedMediaRef.current.add(requestKey);
+    setDisplayedMedia({
+      key: requestKey,
+      kind: output,
+      title: session.state.activeEvent?.title ?? session.briefing.title,
+    });
+
+    const remember = (generation: MediaGeneration) => {
+      if (!mountedRef.current) return;
+      setMediaByKey((current) => ({
+        ...current,
+        [requestKey]: generation,
+      }));
+    };
+
+    const poll = async (generationId: string) => {
+      try {
+        const next = await getMediaGeneration(
+          generationId,
+          mediaAccessKey,
+        );
+        remember(next);
+        if (next.status === 'queued' || next.status === 'running') {
+          window.setTimeout(
+            () => void poll(generationId),
+            output === 'video' ? 4_000 : 1_500,
+          );
+        }
+      } catch (mediaError) {
+        if (mountedRef.current) setError(errorMessage(mediaError));
+      }
+    };
+
+    void createMediaGeneration(
+      {
+        sessionId: session.state.sessionId,
+        hookId: cue.hookId,
+        kind: output,
+      },
+      mediaAccessKey,
+    )
+      .then((generation) => {
+        remember(generation);
+        if (
+          generation.status === 'queued' ||
+          generation.status === 'running'
+        ) {
+          return poll(generation.id);
+        }
+      })
+      .catch((mediaError: unknown) => {
+        if (mountedRef.current) setError(errorMessage(mediaError));
+      });
+  }, [
+    mediaAccessKey,
+    mediaUnlocked,
+    modalities.output,
+    session,
+  ]);
 
   async function selectScenario(scenarioId: ScenarioId) {
     setBusy(true);
@@ -126,7 +236,10 @@ export function App() {
       setScreen('playing');
       setDraft('');
       setPendingLine(null);
-      if (voiceEnabled) speakSessionLine(nextSession);
+      setMediaByKey({});
+      setDisplayedMedia(null);
+      requestedMediaRef.current.clear();
+      if (modalities.output === 'voice') speakSessionLine(nextSession);
     } catch (startError) {
       setError(errorMessage(startError));
     } finally {
@@ -150,7 +263,9 @@ export function App() {
       setSession(result.session);
       setDirectorSummary(result.directorSummary);
       setPendingLine(null);
-      if (voiceEnabled) speakSessionLine(result.session);
+      if (modalities.output === 'voice') {
+        speakSessionLine(result.session);
+      }
       if (
         result.session.state.phase === 'result' &&
         result.session.verdict
@@ -175,17 +290,6 @@ export function App() {
       setPendingLine(null);
     } finally {
       setBusy(false);
-    }
-  }
-
-  function toggleVoice() {
-    const next = !voiceEnabled;
-    setVoiceEnabled(next);
-    writeVoicePreference(next);
-    if (!next) {
-      stopSpeaking();
-    } else if (session) {
-      speakSessionLine(session);
     }
   }
 
@@ -217,11 +321,46 @@ export function App() {
     setPendingLine(null);
     setDirectorSummary(null);
     setError(null);
+    setMediaByKey({});
+    setDisplayedMedia(null);
+    requestedMediaRef.current.clear();
     setScreen('select');
   }
 
   function resetProgress() {
     setProgress(clearProgress());
+  }
+
+  function changeInputMode(input: InputMode) {
+    if (input === 'text' && recording) {
+      stopRecognitionRef.current?.();
+      stopRecognitionRef.current = null;
+      setRecording(false);
+    }
+    updateModalities({ ...modalities, input });
+  }
+
+  function changeOutputMode(output: OutputMode) {
+    if (output !== 'voice') stopSpeaking();
+    updateModalities({ ...modalities, output });
+    if (output === 'voice' && session) {
+      speakSessionLine(session);
+    }
+  }
+
+  function updateModalities(next: ModalityPreferences) {
+    setModalities(next);
+    saveModalities(next);
+  }
+
+  async function unlockMedia(
+    accessKey: string,
+    output: 'image' | 'video',
+  ) {
+    await verifyMediaAccess(accessKey);
+    setMediaAccessKey(accessKey);
+    setMediaUnlocked(true);
+    updateModalities({ ...modalities, output });
   }
 
   if (!scenarios) {
@@ -238,19 +377,27 @@ export function App() {
     );
   }
 
+  const activeMedia =
+    displayedMedia &&
+    modalities.output === displayedMedia.kind
+      ? (mediaByKey[displayedMedia.key] ?? null)
+      : null;
+
+  let content;
   if (screen === 'result' && session) {
-    return (
+    content = (
       <ResultScreen
         session={session}
+        outputMode={modalities.output}
+        mediaGeneration={activeMedia}
+        mediaTitle={displayedMedia?.title ?? null}
         replaying={busy}
         onReplay={beginGame}
         onBackToLevels={returnToLevels}
       />
     );
-  }
-
-  if (screen === 'playing' && session) {
-    return (
+  } else if (screen === 'playing' && session) {
+    content = (
       <GameStage
         session={session}
         capabilities={capabilities}
@@ -259,20 +406,21 @@ export function App() {
         busy={busy}
         error={error}
         directorSummary={directorSummary}
-        voiceEnabled={voiceEnabled}
+        inputMode={modalities.input}
+        outputMode={modalities.output}
+        mediaGeneration={activeMedia}
+        mediaTitle={displayedMedia?.title ?? null}
         recording={recording}
         speechInputSupported={speechInputSupported}
         onDraftChange={setDraft}
         onSubmit={submitLine}
-        onToggleVoice={toggleVoice}
         onToggleRecording={toggleRecording}
+        onOpenSettings={() => setSettingsOpen(true)}
         onExit={returnToLevels}
       />
     );
-  }
-
-  if (screen === 'briefing' && briefing) {
-    return (
+  } else if (screen === 'briefing' && briefing) {
+    content = (
       <>
         <Briefing
           briefing={briefing}
@@ -290,19 +438,63 @@ export function App() {
         )}
       </>
     );
+  } else {
+    content = (
+      <ScenarioSelect
+        scenarios={scenarios}
+        progress={progress}
+        capabilities={capabilities}
+        busy={busy}
+        error={error}
+        onSelect={selectScenario}
+        onClearProgress={resetProgress}
+      />
+    );
   }
 
   return (
-    <ScenarioSelect
-      scenarios={scenarios}
-      progress={progress}
-      capabilities={capabilities}
-      busy={busy}
-      error={error}
-      onSelect={selectScenario}
-      onClearProgress={resetProgress}
-    />
+    <>
+      {content}
+      <button
+        className="settings-trigger"
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        aria-label="打开模态设置"
+        data-testid="open-modality-settings"
+      >
+        <span>设置</span>
+        <small>{outputModeLabel(modalities.output)}输出</small>
+      </button>
+      <ModalitySettings
+        open={settingsOpen}
+        capabilities={capabilities}
+        preferences={modalities}
+        speechInputSupported={speechInputSupported}
+        mediaUnlocked={mediaUnlocked}
+        onInputChange={changeInputMode}
+        onOutputChange={changeOutputMode}
+        onUnlockMedia={unlockMedia}
+        onClose={() => setSettingsOpen(false)}
+      />
+    </>
   );
+}
+
+function mediaKey(
+  sessionId: string,
+  hookId: string,
+  output: 'image' | 'video',
+): string {
+  return `${sessionId}:${hookId}:${output}`;
+}
+
+function outputModeLabel(output: OutputMode): string {
+  return {
+    text: '文字',
+    voice: '语音',
+    image: '图像',
+    video: '视频',
+  }[output];
 }
 
 function speakSessionLine(session: PublicSession) {
@@ -318,23 +510,4 @@ function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return '现场出现了一个意外，请重试。';
-}
-
-function readVoicePreference(): boolean {
-  try {
-    return localStorage.getItem('relationship-training:voice') !== 'off';
-  } catch {
-    return true;
-  }
-}
-
-function writeVoicePreference(enabled: boolean) {
-  try {
-    localStorage.setItem(
-      'relationship-training:voice',
-      enabled ? 'on' : 'off',
-    );
-  } catch {
-    // The preference stays in memory when storage is unavailable.
-  }
 }

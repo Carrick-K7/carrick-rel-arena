@@ -5,6 +5,8 @@ const genericStrongLine =
 
 const repairStrongLine =
   '我知道把你信任我才说的私事公开，是我越界，也让你在大家面前难堪。我现在先在群里叫停、要求删除并道歉；是否回去由你决定，我会陪你一起处理。';
+const mediaAccessKey =
+  process.env.E2E_MEDIA_ACCESS_KEY ?? 'test-media-key';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -42,6 +44,64 @@ test('shows all eight open scenarios and filters by type and progress', async ({
   await page.getByTestId('progress-filter-completed').click();
   await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(0);
   await expect(page.getByText('这个筛选下还没有关卡记录。')).toBeVisible();
+});
+
+test('selects modalities and requires an in-memory key for image generation', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByTestId('open-modality-settings').click();
+  await expect(page.getByTestId('modality-settings')).toBeVisible();
+  await expect(page.getByTestId('input-mode-text')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('output-mode-voice').click();
+  await expect(page.getByTestId('output-mode-voice')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  await page.getByTestId('output-mode-image').click();
+  await page.getByTestId('media-access-key').fill('wrong-key');
+  await page.getByTestId('unlock-media').click();
+  await expect(page.getByRole('alert')).toContainText('媒体密钥不正确');
+
+  await page.getByTestId('media-access-key').fill(mediaAccessKey);
+  await page.getByTestId('unlock-media').click();
+  await expect(page.getByTestId('output-mode-image')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByRole('button', { name: '关闭模态设置' }).click();
+
+  await page.getByTestId('scenario-card-weekend-market').click();
+  await page.getByTestId('start-game').click();
+  await expect(page.getByTestId('generated-media-image')).toBeVisible({
+    timeout: 10_000,
+  });
+
+  const stored = await page.evaluate(() =>
+    JSON.stringify(window.localStorage),
+  );
+  expect(stored).not.toContain(mediaAccessKey);
+  await expect(page.getByTestId('dialogue-input')).toBeVisible();
+});
+
+test('renders an authored story hook as video in mock mode', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByTestId('open-modality-settings').click();
+  await page.getByTestId('output-mode-video').click();
+  await page.getByTestId('media-access-key').fill(mediaAccessKey);
+  await page.getByTestId('unlock-media').click();
+  await page.getByRole('button', { name: '关闭模态设置' }).click();
+  await page.getByTestId('scenario-card-rain-check').click();
+  await page.getByTestId('start-game').click();
+  await expect(page.getByTestId('generated-media-video')).toBeVisible({
+    timeout: 10_000,
+  });
 });
 
 test('enters and leaves a briefing and supports both player identities', async ({
@@ -168,6 +228,10 @@ test('keeps selection and gameplay usable at a mobile viewport', async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
   await expect(page.getByTestId('scenario-card-weekend-market')).toBeVisible();
+  await page.getByTestId('open-modality-settings').click();
+  await expect(page.getByTestId('modality-settings')).toBeVisible();
+  await expect(page.getByTestId('output-mode-video')).toBeVisible();
+  await page.getByRole('button', { name: '关闭模态设置' }).click();
   await page.getByTestId('scenario-card-rain-check').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('dialogue-input')).toBeVisible();

@@ -1,6 +1,8 @@
 import type {
   Capabilities,
   Gender,
+  MediaGeneration,
+  MediaKind,
   PublicSession,
   ScenarioBriefing,
   ScenarioId,
@@ -99,6 +101,55 @@ export async function requestSpeech(
   if (response.status === 204) return null;
   if (!response.ok) throw await toApiError(response);
   return response.blob();
+}
+
+export async function verifyMediaAccess(
+  accessKey: string,
+): Promise<void> {
+  await request<{ ok: true }>(`${API_BASE}/media/access`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ accessKey }),
+  });
+}
+
+export async function createMediaGeneration(
+  input: {
+    sessionId: string;
+    hookId: string;
+    kind: MediaKind;
+  },
+  accessKey: string,
+): Promise<MediaGeneration> {
+  const payload = await request<{ generation: MediaGeneration }>(
+    `${API_BASE}/media/generations`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Media-Access-Key': accessKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+  return payload.generation;
+}
+
+export async function getMediaGeneration(
+  generationId: string,
+  accessKey: string,
+): Promise<MediaGeneration> {
+  const payload = await request<{ generation: MediaGeneration }>(
+    `${API_BASE}/media/generations/${encodeURIComponent(generationId)}`,
+    {
+      headers: {
+        'X-Media-Access-Key': accessKey,
+      },
+    },
+  );
+  return payload.generation;
 }
 
 async function request<T>(

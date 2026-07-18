@@ -32,6 +32,8 @@ export default defineConfig({
         timeout: 120_000,
         env: {
           AI_PROVIDER: 'mock',
+          MEDIA_PROVIDER: 'mock',
+          MEDIA_ACCESS_KEY: 'test-media-key',
           HOST: testUrl.hostname,
           PORT: testUrl.port || '3101',
           USAGE_LOG_PATH: '/tmp/relationship-arena-e2e-usage.jsonl',

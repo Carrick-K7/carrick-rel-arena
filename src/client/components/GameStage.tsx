@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type {
   Capabilities,
+  InputMode,
+  MediaGeneration,
+  OutputMode,
   PublicSession,
 } from '../../shared/contracts.js';
+import { GeneratedMedia } from './GeneratedMedia.js';
 import { Gauge } from './Gauge.js';
 import { Portrait } from './Portrait.js';
 
@@ -14,13 +18,16 @@ interface GameStageProps {
   busy: boolean;
   error: string | null;
   directorSummary: string | null;
-  voiceEnabled: boolean;
+  inputMode: InputMode;
+  outputMode: OutputMode;
+  mediaGeneration: MediaGeneration | null;
+  mediaTitle: string | null;
   recording: boolean;
   speechInputSupported: boolean;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
-  onToggleVoice: () => void;
   onToggleRecording: () => void;
+  onOpenSettings: () => void;
   onExit: () => void;
 }
 
@@ -32,13 +39,16 @@ export function GameStage({
   busy,
   error,
   directorSummary,
-  voiceEnabled,
+  inputMode,
+  outputMode,
+  mediaGeneration,
+  mediaTitle,
   recording,
   speechInputSupported,
   onDraftChange,
   onSubmit,
-  onToggleVoice,
   onToggleRecording,
+  onOpenSettings,
   onExit,
 }: GameStageProps) {
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -134,6 +144,15 @@ export function GameStage({
             </section>
           )}
 
+          {(outputMode === 'image' || outputMode === 'video') &&
+            mediaTitle && (
+              <GeneratedMedia
+                kind={outputMode}
+                title={mediaTitle}
+                generation={mediaGeneration}
+              />
+            )}
+
           <section className="transcript-panel">
             <div className="panel-heading">
               <span>对话</span>
@@ -182,14 +201,21 @@ export function GameStage({
       <footer className="composer-wrap">
         <div className={`composer ${recording ? 'is-recording' : ''}`}>
           <div className="composer__meta">
-            <span>第 {state.round + 1} 句话</span>
+            <span>
+              第 {state.round + 1} 句话 ·{' '}
+              {inputMode === 'voice' ? '语音输入' : '文字输入'}
+            </span>
             <small>{draft.length}/240</small>
           </div>
           <textarea
             value={draft}
             maxLength={240}
             rows={3}
-            placeholder="你会怎么接？"
+            placeholder={
+              inputMode === 'voice'
+                ? '点击“开始说话”，识别后可以继续编辑…'
+                : '你会怎么接？'
+            }
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={(event) => {
@@ -205,22 +231,25 @@ export function GameStage({
             data-testid="dialogue-input"
           />
           <div className="composer__actions">
+            {inputMode === 'voice' && (
+              <button
+                type="button"
+                className={`utility-button ${recording ? 'is-active' : ''}`}
+                onClick={onToggleRecording}
+                disabled={!speechInputSupported || busy}
+                aria-label={recording ? '停止语音输入' : '开始语音输入'}
+                data-testid="voice-input"
+              >
+                {recording ? '停止录音' : '开始说话'}
+              </button>
+            )}
             <button
               type="button"
-              className={`utility-button ${recording ? 'is-active' : ''}`}
-              onClick={onToggleRecording}
-              disabled={!speechInputSupported || busy}
-              aria-label={recording ? '停止语音输入' : '开始语音输入'}
+              className="utility-button"
+              onClick={onOpenSettings}
+              aria-label="打开模态设置"
             >
-              {recording ? '停止录音' : '语音输入'}
-            </button>
-            <button
-              type="button"
-              className={`utility-button ${voiceEnabled ? 'is-active' : ''}`}
-              onClick={onToggleVoice}
-              aria-label={voiceEnabled ? '关闭 AI 语音' : '开启 AI 语音'}
-            >
-              {voiceEnabled ? '语音已开' : '语音已关'}
+              模态设置
             </button>
             <button
               className="send-button"
@@ -239,12 +268,22 @@ export function GameStage({
           </p>
         )}
         <p className="ai-disclosure">
-          AI 角色与 AI 合成语音 · 本关状态不带入下一关
+          AI 角色 · {outputModeLabel(outputMode)}输出 ·
+          本关状态不带入下一关
           <span data-testid="usage-meter">{usageLabel(session)}</span>
         </p>
       </footer>
     </main>
   );
+}
+
+function outputModeLabel(mode: OutputMode): string {
+  return {
+    text: '文字',
+    voice: '语音',
+    image: '图像',
+    video: '视频',
+  }[mode];
 }
 
 function Delta({

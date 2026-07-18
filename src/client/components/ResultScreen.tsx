@@ -1,9 +1,17 @@
 import { useState } from 'react';
-import type { PublicSession } from '../../shared/contracts.js';
+import type {
+  MediaGeneration,
+  OutputMode,
+  PublicSession,
+} from '../../shared/contracts.js';
+import { GeneratedMedia } from './GeneratedMedia.js';
 import { Portrait } from './Portrait.js';
 
 interface ResultScreenProps {
   session: PublicSession;
+  outputMode: OutputMode;
+  mediaGeneration: MediaGeneration | null;
+  mediaTitle: string | null;
   replaying: boolean;
   onReplay: () => void;
   onBackToLevels: () => void;
@@ -11,6 +19,9 @@ interface ResultScreenProps {
 
 export function ResultScreen({
   session,
+  outputMode,
+  mediaGeneration,
+  mediaTitle,
   replaying,
   onReplay,
   onBackToLevels,
@@ -68,9 +79,14 @@ export function ResultScreen({
         <article className="epilogue">
           <span>结局现场</span>
           <p>{verdict.epilogue}</p>
-          {session.state.activeEvent?.videoCue && (
-            <small>◉ 结局生成式短视频接口已预留</small>
-          )}
+          {(outputMode === 'image' || outputMode === 'video') &&
+            mediaTitle && (
+              <GeneratedMedia
+                kind={outputMode}
+                title={mediaTitle}
+                generation={mediaGeneration}
+              />
+            )}
           <small data-testid="result-usage">
             ◫ 本局模型 {session.usage.calls} 次 ·{' '}
             {session.usage.totalTokens.toLocaleString()} tokens ·{' '}

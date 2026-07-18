@@ -12,6 +12,7 @@ Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=3100
 EnvironmentFile=-/etc/relationship-arena/relationship-arena.env
+EnvironmentFile=-/etc/relationship-arena/relationship-arena-media.env
 ExecStart=/usr/bin/node /home/ubuntu/projects/relationship-arena/dist/server/server/index.js
 Restart=on-failure
 RestartSec=5

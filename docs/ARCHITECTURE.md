@@ -20,10 +20,12 @@ Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继�
 React Client
   ├─ Scenario Select / Briefing / Dialogue / Result
   ├─ Local progress (completion and records only)
+  ├─ Modality settings (text/voice/image/video)
   ├─ State-driven Portrait Renderer
   ├─ Speech input + TTS player
+  ├─ Generated media renderer
   └─ Share adapter
-          │ HTTPS JSON / audio
+          │ HTTPS JSON / audio / signed media URL
 Express Orchestrator
   ├─ Session store (memory + TTL)
   ├─ Turn lock + rate limit
@@ -39,9 +41,12 @@ Express Orchestrator
   │    ├─ Xiaomi MiMo V2.5 TTS
   │    ├─ OpenAI TTS
   │    └─ Browser speech fallback
+  ├─ Media adapter
+  │    ├─ Mock
+  │    └─ Ark Seedream / Seedance
   ├─ Usage ledger + pricing estimator
   ├─ Budget/error alerts + optional webhook
-  └─ Video hook adapter (reserved)
+  └─ Authored opening / turning / ending media hooks
 ```
 
 ### 三 Agent 分工
@@ -212,6 +217,9 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 | GET | `/api/sessions/:id` | 恢复当前内存会话 |
 | POST | `/api/sessions/:id/turns` | 提交玩家台词并完成一回合 |
 | POST | `/api/speech` | 把角色台词转换为 AI 音频 |
+| POST | `/api/media/access` | 校验页面媒体访问密钥，不返回供应商凭证 |
+| POST | `/api/media/generations` | 从当前会话的有效剧情 Hook 创建图像或视频任务 |
+| GET | `/api/media/generations/:id` | 查询当前进程内的媒体生成状态与结果 URL |
 | GET | `/api/admin/usage` | 当日模型/TTS 聚合、阈值与最近告警 |
 | GET | `/api/admin/metrics` | Prometheus 文本指标 |
 
@@ -219,7 +227,7 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 
 用量日志采用 JSONL，只包含 UUID、Provider、模型、Agent、Token、缓存、延迟、重试、成功状态和成本估算，不包含 Prompt、台词或完整转录。默认写入 `var/usage-events.jsonl`；告警独立写入 `var/usage-alerts.jsonl`。服务启动时恢复最近 5,000 条技术事件和最近 50 条告警，使当日统计可跨进程重启。真实供应商返回的 Token 标记为 `provider_reported`，Mock 采用字符数近似并标记为 `estimated`。
 
-浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份。浏览器不保存会话 ID、对话正文、玩家输入或关系数值。
+浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份；使用 `relationship-training:modalities:v1` 保存输入/输出模态。浏览器不保存媒体访问密钥、会话 ID、对话正文、玩家输入或关系数值。
 
 ## 8. 模型与成本可行性
 
@@ -255,11 +263,13 @@ DeepSeek 文本方案搭配小米 MiMo、OpenAI TTS 或浏览器系统语音。�
 
 `TTS_PROVIDER=auto` 的启动选择顺序为 MiMo → OpenAI → 浏览器。运行中服务端 TTS 出错时，角色文字先正常展示，客户端捕获音频错误并调用 Web Speech API，不阻塞对话回合。男女角色分别读取独立音色变量。
 
-内容链条按“文字 → 立绘 → 语音 → 视频”逐层增强。文字状态机始终可运行；立绘随发布包提供；语音 Provider 缺失时回退浏览器；视频接口保持 Hook 状态，未配置生成供应商时不发起请求。
+内容链条按“文字 → 立绘 → 语音 → 图像/视频”逐层增强。文字状态机与字幕始终可运行；立绘随发布包提供；语音 Provider 缺失时回退浏览器；图像和视频由玩家显式选择，且仅在媒体 Provider 可用并通过产品访问密钥后生成。
 
-### `gpt-image-2` 使用边界
+### 火山方舟媒体生成边界
 
-Codex/ChatGPT 订阅内置的 `gpt-image-2` 可用于开发阶段生成静态图片资产并纳入版本库。玩家触发的动态图片生成使用 OpenAI API Key、API 计费和相应组织权限。[OpenAI 图像生成指南](https://developers.openai.com/api/docs/guides/image-generation)
+玩家触发的动态图像使用 Seedream，动态视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。媒体服务只接受 `sessionId + hookId + kind`，再从当前权威会话读取作者预设提示词，拒绝客户端自定义 Prompt。相同会话、Hook 和媒体类型幂等，媒体任务在进程内保存并随 TTL 过期。
+
+默认视频规格是 480p、16:9、4 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。图片、视频链接由供应商返回，不写入浏览器持久化数据。
 
 DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`、`completion_tokens`、`reasoning_tokens` 和 `total_tokens`。缓存命中量按 DeepSeek 缓存单价计算。
 
@@ -275,6 +285,7 @@ DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_to
 | 会话 | 进程内 Map + TTL | 原型零运维；生产替换 Redis |
 | 立绘 | WebP + CSS Motion | 双角色、情绪状态切换、体积小；数据协议可接 Live2D |
 | 音频 | MiMo/OpenAI TTS + Web Speech fallback | 真实 AI 声音与无 Key 演示路径同时成立 |
+| 图像/视频 | Ark Seedream + Seedance | 统一 API Key、异步视频任务和关键剧情 Hook |
 
 ## 10. 目录结构
 
@@ -289,6 +300,7 @@ relationship-arena/
       components/
       App.tsx
       api.ts
+      modalities.ts
       speech.ts
       styles.css
     server/
@@ -298,6 +310,7 @@ relationship-arena/
         types.ts
       agents.ts
       engine.ts
+      media.ts
       prompts.ts
       scenario.ts
       sessions.ts
@@ -332,6 +345,7 @@ relationship-arena/
 - 完成关卡筛选、本机完成记录、分身份最佳成绩与结局收藏。
 - 完成三 Agent 接口、Mock、OpenAI、DeepSeek Provider。
 - 完成文本输入、可选语音输入、AI TTS、浏览器语音回退。
+- 完成模态设置、Seedream 图像与 Seedance 视频输出、页面访问密钥门禁。
 - 完成双角色动态立绘、状态 HUD、结算复盘和分享文本。
 - 完成逐局与逐日用量统计、价格估算、JSONL、Prometheus 与四类阈值告警。
 - 完成单元测试、生产构建与端到端测试。
@@ -354,7 +368,7 @@ relationship-arena/
 ### Phase 3：主播与精品发布
 
 - 观众投票模式、OBS 友好布局、二维码接话。
-- 开场、关键转折、结局视频 Hook 接入异步生成队列。
+- 将当前进程内媒体任务升级为持久化异步队列，并增加并发与预算熔断。
 - 结局收藏册、每日限制挑战和排行榜。
 - 基于实测留存控制内容规模，维持小众精品节奏。
 
@@ -369,3 +383,4 @@ relationship-arena/
 | 成本失控 | 最大 7 轮、输出上限、IP 限流、Provider 熔断、预算告警 |
 | 对话涉及现实危机 | 安全分类、剧情暂停、明确虚构产品边界 |
 | 语音合成延迟 | 文本先展示、音频异步、浏览器语音回退 |
+| 图像/视频生成成本和延迟 | 产品访问密钥、预设 Hook、低规格默认值、异步展示与接口限流 |

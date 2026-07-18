@@ -20,6 +20,13 @@ export const ScenarioTypeSchema = z.enum([
 ]);
 export const DifficultySchema = z.enum(['入门', '进阶', '高压']);
 export const GenderSchema = z.enum(['male', 'female']);
+export const InputModeSchema = z.enum(['text', 'voice']);
+export const OutputModeSchema = z.enum([
+  'text',
+  'voice',
+  'image',
+  'video',
+]);
 
 export const ENDING_IDS_BY_SCENARIO = {
   'weekend-market': [
@@ -157,6 +164,28 @@ export const VideoHookSchema = z.strictObject({
   prompt: z.string().min(1).max(600),
   idempotencyKey: z.string().min(1).max(120),
   status: z.literal('reserved'),
+});
+
+export const MediaKindSchema = z.enum(['image', 'video']);
+export const MediaGenerationStatusSchema = z.enum([
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+]);
+export const MediaGenerationSchema = z.strictObject({
+  id: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  hookId: z.string().min(1).max(80),
+  kind: MediaKindSchema,
+  status: MediaGenerationStatusSchema,
+  url: z.string().min(1).max(4096).nullable(),
+  error: z.string().min(1).max(180).nullable(),
+  provider: z.enum(['mock', 'ark']),
+  model: z.string().min(1).max(120),
+  usageTokens: z.number().int().min(0).nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
 });
 
 export const StoryEventSchema = z.strictObject({
@@ -409,12 +438,25 @@ export const TurnResponseSchema = z.strictObject({
   directorSummary: z.string().min(1).max(240),
 });
 
+export const MediaAccessInputSchema = z.strictObject({
+  accessKey: z.string().min(1).max(128),
+});
+
+export const CreateMediaGenerationInputSchema = z.strictObject({
+  sessionId: z.string().uuid(),
+  hookId: z.string().min(1).max(80),
+  kind: MediaKindSchema,
+});
+
 export const CapabilitiesSchema = z.strictObject({
   textProvider: z.enum(['mock', 'openai', 'deepseek']),
   remoteText: z.boolean(),
   serverTts: z.boolean(),
   ttsProvider: z.enum(['mimo', 'openai', 'browser']),
-  videoHooks: z.literal('reserved'),
+  imageGeneration: z.enum(['unavailable', 'mock', 'ark']),
+  videoGeneration: z.enum(['unavailable', 'mock', 'ark']),
+  mediaAccessRequired: z.boolean(),
+  videoHooks: z.enum(['reserved', 'enabled']),
   sessionStorage: z.literal('memory-ttl'),
   usageTracking: z.literal('enabled'),
   usageAlerting: z.boolean(),
@@ -425,6 +467,8 @@ export type ScenarioType = z.infer<typeof ScenarioTypeSchema>;
 export type Difficulty = z.infer<typeof DifficultySchema>;
 export type GamePhase = z.infer<typeof GamePhaseSchema>;
 export type Gender = z.infer<typeof GenderSchema>;
+export type InputMode = z.infer<typeof InputModeSchema>;
+export type OutputMode = z.infer<typeof OutputModeSchema>;
 export type Emotion = z.infer<typeof EmotionSchema>;
 export type Tone = z.infer<typeof ToneSchema>;
 export type EndingId = z.infer<typeof EndingIdSchema>;
@@ -434,6 +478,11 @@ export type MetricDelta = z.infer<typeof MetricDeltaSchema>;
 export type EvaluationSignals = z.infer<typeof EvaluationSignalsSchema>;
 export type StateDiscoveries = EvaluationSignals;
 export type VideoHook = z.infer<typeof VideoHookSchema>;
+export type MediaKind = z.infer<typeof MediaKindSchema>;
+export type MediaGenerationStatus = z.infer<
+  typeof MediaGenerationStatusSchema
+>;
+export type MediaGeneration = z.infer<typeof MediaGenerationSchema>;
 export type StoryEvent = z.infer<typeof StoryEventSchema>;
 export type DirectorDecision = z.infer<typeof DirectorDecisionSchema>;
 export type ActorPerformance = z.infer<typeof ActorPerformanceSchema>;

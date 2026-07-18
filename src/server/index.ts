@@ -10,13 +10,20 @@ import express, {
 import { z, ZodError } from 'zod';
 import {
   CapabilitiesSchema,
+  CreateMediaGenerationInputSchema,
   CreateSessionInputSchema,
   GenderSchema,
+  MediaAccessInputSchema,
   ScenarioIdSchema,
   ToneSchema,
   TurnInputSchema,
 } from '../shared/contracts.js';
 import { GameAgents } from './agents.js';
+import {
+  MediaError,
+  MediaGenerationService,
+  readMediaConfig,
+} from './media.js';
 import {
   createAiProvider,
   readProviderConfig,
@@ -56,6 +63,11 @@ const sessions = new GameSessionService(
   ttlMinutes,
   usageTracker,
 );
+const mediaConfig = readMediaConfig();
+const mediaGenerations = new MediaGenerationService(
+  mediaConfig,
+  (sessionId) => sessions.get(sessionId),
+);
 const ttsConfig = readTtsConfig();
 const port = parsePositiveInt(process.env.PORT, 3100);
 const host = process.env.HOST?.trim() || '127.0.0.1';
@@ -67,7 +79,13 @@ const capabilities = CapabilitiesSchema.parse({
   remoteText: provider.kind !== 'mock',
   serverTts: Boolean(ttsConfig.apiKey),
   ttsProvider: ttsConfig.provider,
-  videoHooks: 'reserved',
+  imageGeneration: mediaGenerations.capability,
+  videoGeneration: mediaGenerations.capability,
+  mediaAccessRequired: mediaGenerations.accessRequired,
+  videoHooks:
+    mediaGenerations.capability === 'unavailable'
+      ? 'reserved'
+      : 'enabled',
   sessionStorage: 'memory-ttl',
   usageTracking: 'enabled',
   usageAlerting: usageTracker.alertingEnabled,
@@ -92,18 +110,32 @@ app.use(express.json({ limit: '32kb' }));
 app.use((_request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
-  response.setHeader('Permissions-Policy', 'camera=(), geolocation=()');
+  response.setHeader(
+    'Permissions-Policy',
+    'camera=(), geolocation=(), microphone=(self)',
+  );
   next();
 });
 
 const turnLimit = createRateLimit(30, 60_000);
 const speechLimit = createRateLimit(60, 60_000);
+const mediaAccessLimit = createRateLimit(12, 60_000);
+const mediaGenerationLimit = createRateLimit(8, 60_000);
 
 app.get('/api/health', (_request, response) => {
   response.json({
     ok: true,
     provider: provider.kind,
     model: provider.model,
+    mediaProvider: mediaGenerations.capability,
+    imageModel:
+      mediaGenerations.capability === 'unavailable'
+        ? null
+        : mediaConfig.imageModel,
+    videoModel:
+      mediaGenerations.capability === 'unavailable'
+        ? null
+        : mediaConfig.videoModel,
     usageAlerts: usageTracker.getSnapshot().alerts.length,
     now: new Date().toISOString(),
   });
@@ -220,6 +252,47 @@ app.post('/api/speech', speechLimit, async (request, response) => {
   response.send(speech.audio);
 });
 
+app.post(
+  '/api/media/access',
+  mediaAccessLimit,
+  (request, response) => {
+    const input = MediaAccessInputSchema.parse(request.body);
+    mediaGenerations.assertAccess(input.accessKey);
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.json({ ok: true });
+  },
+);
+
+app.post(
+  '/api/media/generations',
+  mediaGenerationLimit,
+  (request, response) => {
+    const input = CreateMediaGenerationInputSchema.parse(request.body);
+    const generation = mediaGenerations.create(
+      input,
+      readMediaAccessKey(request),
+    );
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.status(202).json({ generation });
+  },
+);
+
+app.get(
+  '/api/media/generations/:generationId',
+  mediaGenerationLimit,
+  (request, response) => {
+    const generationId = z.uuid().parse(
+      readRouteParam(request.params.generationId),
+    );
+    const generation = mediaGenerations.get(
+      generationId,
+      readMediaAccessKey(request),
+    );
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.json({ generation });
+  },
+);
+
 app.get(
   '/api/admin/usage',
   requireUsageAdmin,
@@ -308,6 +381,16 @@ const errorHandler: ErrorRequestHandler = (
     return;
   }
 
+  if (error instanceof MediaError) {
+    response.status(error.status).json({
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    });
+    return;
+  }
+
   if (error instanceof ProviderError) {
     console.error(
       `[provider:${error.provider}] ${error.message.replaceAll(/\s+/g, ' ')}`,
@@ -337,6 +420,11 @@ app.listen(port, host, () => {
     `关系修炼运行于 http://${host}:${port} [${provider.kind}:${provider.model}]`,
   );
 });
+
+function readMediaAccessKey(request: Request): string | undefined {
+  const value = request.header('X-Media-Access-Key');
+  return value?.trim() || undefined;
+}
 
 function requireUsageAdmin(
   request: Request,

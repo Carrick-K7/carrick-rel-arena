@@ -9,9 +9,9 @@
 - 独立的导演、角色、评判三套 Agent、Prompt 与结构化结果。
 - 权威服务端状态机：关系温度、对话压力、开放程度、轮次、事件和结局条件。
 - 单一清晰关卡目标、三个结局、称号、毒舌点评、关键对话复盘和分享文案。
-- 文字输入、浏览器语音输入、小米 MiMo/OpenAI TTS 与浏览器语音回退。
+- 设置页可手动选择文字/语音输入，以及文字/语音/图像/视频输出；所有输出均保留文字字幕。
 - 黎岚与周叙两位对手立绘，随玩家角色选择切换，并由情绪状态驱动演出。
-- 开场、转折、结局三类生成式短视频 Hook。
+- 火山方舟 Seedream 图像与 Seedance 视频生成，限定在开场、转折、结局三类剧情 Hook。
 - `mock`、`openai`、`deepseek` 三种文本模型模式。
 - 每个 Agent 调用的 Token、缓存、延迟、重试、成本估算和阈值告警。
 - 内存会话和自动过期机制，每局关系状态保持独立。
@@ -55,19 +55,29 @@ MIMO_TTS_MALE_VOICE=白桦
 
 `auto` 按“小米 MiMo → OpenAI → 浏览器系统语音”选择可用语音 Provider，并按对手性别选择音色。服务端 TTS 未配置或请求失败时，客户端自动使用浏览器系统语音；文字和立绘流程不受影响。
 
-内容能力遵循“文字 → 立绘 → 语音 → 视频”的逐层增强：文字对话是必备主路径，立绘作为随包静态资产始终可用；语音密钥缺失时使用浏览器能力；视频仅保留 Hook，未配置生成服务时不会发起请求。
+启用图像与视频生成：
 
-ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发。服务运行时通过 OpenAI API Platform 的 `OPENAI_API_KEY` 调用真实 GPT；`mock` 模式可直接运行完整游戏、语音回退和全部测试。
+```dotenv
+MEDIA_PROVIDER=ark
+MEDIA_ACCESS_KEY=...
+ARK_API_KEY=...
+ARK_IMAGE_MODEL=doubao-seedream-5-0-260128
+ARK_VIDEO_MODEL=doubao-seedance-2-0-260128
+```
 
-Codex 中内置的 `gpt-image-2` 可在开发阶段生成并提交静态美术资产，消耗 Codex/ChatGPT 订阅用量。让已部署应用在玩家请求时动态生成图片属于 API 调用，需要独立的 OpenAI API Key、API 计费和相应组织权限。
+`ARK_API_KEY` 是服务端调用火山方舟的真实凭证；`MEDIA_ACCESS_KEY` 是玩家在设置页输入的产品访问密钥，用来避免公开访客误触发付费生成。两者用途不同。图像和视频只使用关卡作者提供的开场、转折与结局提示词，不把玩家对话正文发送给媒体模型。访问密钥只保留在当前页面内存，刷新即清除；本机只持久化所选模态。
+
+内容能力逐层增强：文字对话和字幕是必备主路径；立绘作为随包静态资产始终可用；语音密钥缺失时使用浏览器能力；媒体 Provider 未配置时禁用图像和视频选项。默认 Seedance 配置为 480p、16:9、4 秒、无生成音频，控制单次生成成本；Seedream 使用独立的 180 秒请求超时，不阻塞文字对话。
+
+ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发。应用运行时的 OpenAI、DeepSeek、MiMo 和火山方舟调用各自使用独立 API 凭证与计费账户；`mock` 模式可直接运行完整游戏、语音回退和全部测试。
 
 ## 环境变量与密钥位置
 
 - 本地开发：复制 `.env.example` 为仓库根目录 `.env`；`.env` 已被 Git 忽略。
-- 本机服务：实际密钥放在 `/etc/relationship-arena/relationship-arena.env`，systemd 读取该文件。
+- 本机服务：文字和语音密钥放在 `/etc/relationship-arena/relationship-arena.env`；媒体密钥可单独放在 `/etc/relationship-arena/relationship-arena-media.env`，systemd 同时读取两者。
 - 可提交声明：`.env.example` 与 `deploy/relationship-arena.env.example` 只保留空占位符。
 
-密钥只存在服务端环境中；前端构建和 `/api/capabilities` 只包含 Provider 能力标签。
+供应商密钥只存在服务端环境中；前端构建和 `/api/capabilities` 只包含 Provider 能力标签。页面输入的媒体访问密钥不会写入 `localStorage`、会话数据或技术用量日志。
 
 ## 用量与告警
 
@@ -103,13 +113,15 @@ curl -fsS http://127.0.0.1:3100/api/health
 https://games.carrick7.com/rel-arena/
 ```
 
-公网 Caddy 路由只代理游戏与语音接口，并屏蔽 `/rel-arena/api/admin/*`。本机管理接口继续通过 `http://127.0.0.1:3100/api/admin/*` 使用。
+公网 Caddy 路由代理游戏、会话、语音和媒体接口，并屏蔽 `/rel-arena/api/admin/*`。本机管理接口继续通过 `http://127.0.0.1:3100/api/admin/*` 使用。
 
 对已部署构建运行浏览器测试：
 
 ```bash
-npm run test:e2e:deployed
+E2E_MEDIA_ACCESS_KEY=<media-access-key> npm run test:e2e:deployed
 ```
+
+该套件会各触发一次真实图像和视频生成；只做零成本烟雾检查时，应改用不含媒体用例的 Playwright 筛选。
 
 ## 验证
 
