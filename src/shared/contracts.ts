@@ -34,24 +34,21 @@ export const EndingIdSchema = z.enum([
   'breakfast-stays-warm',
   'suitcase-by-the-door',
   'elevator-going-down',
-  'apology-allergen',
 ]);
 
-export const EndingTierSchema = z.enum(['S', 'A', 'C', 'F']);
+export const EndingTierSchema = z.enum(['S', 'A', 'C']);
 
 export const EndReasonSchema = z.enum([
   'breakthrough',
   'provisional_truce',
   'relationship_break',
   'round_limit',
-  'restriction_collapse',
 ]);
 
 export const MetricDeltaSchema = z.strictObject({
   trust: z.number().int().min(-18).max(16),
   anger: z.number().int().min(-16).max(22),
   vulnerability: z.number().int().min(-12).max(16),
-  hiddenProgress: z.number().int().min(0).max(1),
 });
 
 export const StateDiscoveriesSchema = z.strictObject({
@@ -80,7 +77,6 @@ export const DirectorDecisionSchema = z.strictObject({
   assessment: z.string().min(1).max(240),
   delta: MetricDeltaSchema,
   discoveries: StateDiscoveriesSchema,
-  restrictionHit: z.boolean(),
   event: StoryEventSchema.nullable(),
   actorBrief: z.string().min(1).max(400),
   shouldEnd: z.boolean(),
@@ -138,10 +134,8 @@ export const GameStateSchema = z.strictObject({
     trust: z.number().int().min(0).max(100),
     anger: z.number().int().min(0).max(100),
     vulnerability: z.number().int().min(0).max(100),
-    hiddenProgress: z.number().int().min(0).max(3),
   }),
   flags: z.strictObject({
-    forbiddenPhraseCount: z.number().int().min(0).max(7),
     namedSpecificHurt: z.boolean(),
     ownedChoice: z.boolean(),
     concretePlan: z.boolean(),
@@ -164,11 +158,7 @@ export const JudgeVerdictSchema = z.strictObject({
   title: z.string().min(2).max(20),
   roast: z.string().min(1).max(180),
   epilogue: z.string().min(1).max(360),
-  goals: z.strictObject({
-    publicGoal: GoalResultSchema,
-    hiddenGoal: GoalResultSchema,
-    restriction: GoalResultSchema,
-  }),
+  goal: GoalResultSchema,
   keyMoments: z.array(
     z.strictObject({
       round: z.number().int().min(1).max(7),
@@ -183,7 +173,6 @@ export const JudgeVerdictSchema = z.strictObject({
 export const ScenarioBriefingSchema = z.strictObject({
   id: z.literal('suitcase-at-one'),
   title: z.string(),
-  subtitle: z.string(),
   timeAndPlace: z.string(),
   premise: z.string(),
   playerRole: z.string(),
@@ -201,9 +190,7 @@ export const ScenarioBriefingSchema = z.strictObject({
     experienceYears: z.literal(3),
     personality: z.string(),
   }),
-  publicGoal: z.string(),
-  hiddenGoalTeaser: z.string(),
-  restriction: z.string(),
+  goal: z.string(),
   maxRounds: z.literal(7),
 });
 

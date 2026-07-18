@@ -95,16 +95,16 @@ export function ResultScreen({
         </div>
 
         <section className="goal-results">
-          <h2>三重判定</h2>
-          {Object.entries(verdict.goals).map(([key, goal]) => (
-            <article key={key} className={goal.met ? 'is-met' : 'is-missed'}>
-              <span>{goal.met ? '✓' : '×'}</span>
-              <div>
-                <strong>{goal.label}</strong>
-                <p>{goal.detail}</p>
-              </div>
-            </article>
-          ))}
+          <h2>目标判定</h2>
+          <article
+            className={verdict.goal.met ? 'is-met' : 'is-missed'}
+          >
+            <span>{verdict.goal.met ? '✓' : '×'}</span>
+            <div>
+              <strong>{verdict.goal.label}</strong>
+              <p>{verdict.goal.detail}</p>
+            </div>
+          </article>
         </section>
 
         <section className="review-panel">
@@ -179,7 +179,6 @@ function endingTitle(endingId: NonNullable<PublicSession['state']['endingId']>) 
     'breakfast-stays-warm': '早餐还热',
     'suitcase-by-the-door': '行李留在门口',
     'elevator-going-down': '电梯下行',
-    'apology-allergen': '道歉过敏原',
   };
   return titles[endingId];
 }

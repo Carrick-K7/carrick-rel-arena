@@ -175,89 +175,72 @@ figure {
 }
 
 .briefing-copy h1 {
-  max-width: 680px;
+  max-width: 720px;
   font-family: Georgia, "Songti SC", "STSong", serif;
-  font-size: clamp(48px, 5.4vw, 76px);
+  font-size: clamp(44px, 4.5vw, 64px);
   font-weight: 600;
-  line-height: 1.08;
+  line-height: 1.12;
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
-.briefing-subtitle {
-  margin-top: 16px;
-  color: var(--accent-dark);
-  font-family: Georgia, "Songti SC", "STSong", serif;
-  font-size: clamp(22px, 2vw, 28px);
-  line-height: 1.4;
-}
-
-.premise {
-  max-width: 650px;
-  margin-top: 28px;
-  color: #425250;
-  font-size: 17px;
-  line-height: 1.85;
-}
-
-.briefing-rules {
-  margin-top: 34px;
-  border-top: 1px solid var(--ink);
-}
-
-.briefing-rules article {
+.briefing-sections {
   display: grid;
-  gap: 20px;
-  padding: 17px 0;
-  border-bottom: 1px solid var(--line);
-  grid-template-columns: 86px 1fr;
-}
-
-.briefing-rules span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.briefing-rules strong {
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.6;
-}
-
-.briefing-rules .rule-danger strong {
-  color: var(--anger);
-}
-
-.character-dossier {
-  display: flex;
   gap: 12px;
-  margin-top: 23px;
-  align-items: baseline;
-  font-size: 15px;
+  margin-top: 32px;
+  grid-template-columns: 1fr;
 }
 
-.character-dossier strong {
+.briefing-section {
+  min-width: 0;
+  padding: 19px 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.briefing-section > span,
+.briefing-section legend {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.briefing-section h2 {
   font-family: Georgia, "Songti SC", "STSong", serif;
   font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
-.character-dossier span {
+.briefing-section p {
+  margin-top: 8px;
   color: var(--muted);
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.briefing-section--goal {
+  border-left: 4px solid var(--accent);
+  background: #e9f9f7;
+}
+
+.briefing-section--goal > span {
+  color: var(--accent-dark);
+}
+
+.briefing-section--goal h2 {
+  font-size: 20px;
 }
 
 .role-picker {
-  margin: 28px 0 0;
-  padding: 0;
-  border: 0;
+  margin: 0;
 }
 
 .role-picker legend {
-  margin-bottom: 11px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
+  padding: 0 6px;
 }
 
 .role-picker > div {
@@ -311,7 +294,11 @@ figure {
   white-space: nowrap;
 }
 
-.role-picker > p {
+.role-picker .role-picker__intro {
+  margin: 0 0 12px;
+}
+
+.role-picker .role-picker__opponent {
   margin-top: 9px;
   color: var(--accent-dark);
   font-size: 12px;
@@ -546,11 +533,8 @@ figure {
 }
 
 .game-brief {
-  display: grid;
-  gap: 32px;
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
-  grid-template-columns: 1fr 1fr;
 }
 
 .game-brief p {
@@ -559,19 +543,11 @@ figure {
   line-height: 1.55;
 }
 
-.game-brief p + p {
-  text-align: right;
-}
-
 .game-brief span {
   margin-right: 10px;
   color: var(--faint);
   font-size: 12px;
   font-weight: 700;
-}
-
-.game-brief .is-broken {
-  color: var(--anger);
 }
 
 .arena-layout {
@@ -614,7 +590,7 @@ figure {
   gap: 24px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr;
 }
 
 .gauge__label {
@@ -652,27 +628,6 @@ figure {
 
 .gauge--anger .gauge__track span {
   background: var(--anger);
-}
-
-.hidden-progress {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.hidden-progress i {
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--faint);
-  border-radius: 50%;
-}
-
-.hidden-progress i.is-found {
-  border-color: var(--accent);
-  background: var(--accent);
 }
 
 .latest-reply {
@@ -1393,7 +1348,7 @@ figure {
   }
 
   .briefing-copy h1 {
-    font-size: clamp(44px, 12vw, 62px);
+    font-size: clamp(39px, 10.5vw, 56px);
   }
 
   .briefing-actions {
@@ -1503,23 +1458,12 @@ figure {
     font-size: 12px;
   }
 
-  .character-dossier {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
-  }
-
   .role-picker > div {
     grid-template-columns: 1fr;
   }
 
   .role-picker button {
     min-height: 68px;
-  }
-
-  .briefing-rules article {
-    gap: 9px;
-    grid-template-columns: 1fr;
   }
 
   .briefing-visual blockquote {
@@ -1534,10 +1478,6 @@ figure {
   .status-strip {
     gap: 16px;
     grid-template-columns: 1fr 1fr;
-  }
-
-  .hidden-progress {
-    grid-column: 1 / 3;
   }
 
   .character-stage {

@@ -48,9 +48,9 @@ Express Orchestrator
 **导演 Agent**
 
 - 输入：场景圣经、当前权威状态、转录摘要、玩家本轮台词。
-- 输出：局势评估、状态增量、禁令判断、剧情事件、下一拍角色指令、建议结束原因。
+- 输出：局势评估、状态增量、剧情事件、下一拍角色指令、建议结束原因。
 - 权限：提出状态变更和事件。
-- 约束：服务端 reducer 执行禁词检测、数值截断和确定性结局门槛。
+- 约束：服务端 reducer 执行数值截断和确定性结局门槛。
 
 **角色 Agent**
 
@@ -61,7 +61,7 @@ Express Orchestrator
 
 **评判 Agent**
 
-- 输入：公开目标、隐藏目标、限制、完整转录、最终状态、确定性结局 ID。
+- 输入：本关唯一目标、完整转录、最终状态、确定性结局 ID。
 - 输出：结局文案、称号、评分、毒舌点评、目标判定、关键对话复盘、分享文案。
 - 权限：负责解释和包装。
 - 约束：结局 ID 与等级由确定性规则锁定。
@@ -134,10 +134,8 @@ interface GameState {
     trust: number;          // 0..100
     anger: number;          // 0..100
     vulnerability: number;  // 0..100
-    hiddenProgress: number; // 0..3
   };
   flags: {
-    forbiddenPhraseCount: number;
     namedSpecificHurt: boolean;
     ownedChoice: boolean;
     concretePlan: boolean;
@@ -151,7 +149,6 @@ interface DirectorDecision {
   assessment: string;
   delta: MetricDelta;
   discoveries: StateFlags;
-  restrictionHit: boolean;
   event: StoryEvent | null;
   actorBrief: string;
   shouldEnd: boolean;
@@ -177,12 +174,12 @@ interface ActorPerformance {
 
 interface JudgeVerdict {
   endingId: EndingId;
-  tier: 'S' | 'A' | 'C' | 'F';
+  tier: 'S' | 'A' | 'C';
   score: number;
   title: string;
   roast: string;
   epilogue: string;
-  goals: GoalResults;
+  goal: GoalResult;
   keyMoments: KeyMoment[];
   shareText: string;
 }
@@ -192,12 +189,10 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 
 ## 6. 确定性规则
 
-- 所有数值限制在 `0..100`，隐藏进度限制在 `0..3`。
-- 服务端词表检测禁词，模型判断作为补充信号。
+- 所有关系数值限制在 `0..100`。
 - 每回合信任变化限制在 `-18..16`，愤怒变化限制在 `-16..22`。
-- S 结局门槛：第 4 轮起，信任 ≥ 72、愤怒 ≤ 40、隐藏进度 = 3、禁词次数 = 0。
+- S 结局门槛：第 4 轮起，信任 ≥ 72、愤怒 ≤ 40，并出现充分的关系修复信号。
 - A 结局门槛：第 5 轮起，信任 ≥ 54、愤怒 ≤ 52、具体行动成立。
-- F 特殊结局：禁词次数 ≥ 2，或禁词触发且最终信任 < 35。
 - C 结局：信任 ≤ 10、愤怒 ≥ 90，或第 7 轮结束仍未满足更高结局。
 - 导演可建议提前结束，reducer 需要同时验证硬门槛。
 
@@ -326,7 +321,7 @@ relationship-arena/
 
 ### Phase 0：本次原型
 
-- 完成单场景、两种玩家身份、两位对应对手、四结局。
+- 完成单场景、两种玩家身份、两位对应对手、三个结局。
 - 完成三 Agent 接口、Mock、OpenAI、DeepSeek Provider。
 - 完成文本输入、可选语音输入、AI TTS、浏览器语音回退。
 - 完成双角色动态立绘、状态 HUD、结算复盘和分享文本。
@@ -344,7 +339,7 @@ relationship-arena/
 ### Phase 2：内容生产工具
 
 - 关卡 DSL、角色圣经编辑器、Prompt 版本管理。
-- 自动跑轨迹并生成结局分布、角色漂移和禁词漏检报告。
+- 自动跑轨迹并生成结局分布与角色漂移报告。
 - 新增家庭冲突与朋友社交场景，每个场景先通过人工内容基准。
 - 接入 Live2D adapter 和口型事件。
 
@@ -361,7 +356,7 @@ relationship-arena/
 |---|---|
 | 两次串行模型调用造成等待 | 小模型、短输出、缓存稳定前缀、SSE 阶段反馈 |
 | 模型擅自改状态或结局 | 确定性 reducer、Zod、数值 clamp、结局 ID 锁定 |
-| 角色逐轮变成通用客服 | 角色语言指纹、禁用表达、固定轨迹评测 |
+| 角色逐轮变成通用客服 | 角色语言指纹、固定轨迹评测 |
 | 玩家提示注入 | 输入数据化、独立系统 Prompt、服务端权限边界 |
 | 成本失控 | 最大 7 轮、输出上限、IP 限流、Provider 熔断、预算告警 |
 | 对话涉及现实危机 | 安全分类、剧情暂停、明确虚构产品边界 |

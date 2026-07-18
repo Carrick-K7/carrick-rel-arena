@@ -8,11 +8,7 @@ import {
   type GameState,
   type JudgeVerdict,
 } from '../shared/contracts.js';
-import {
-  ENDING_CATALOG,
-  containsForbiddenPhrase,
-  createForbiddenEvent,
-} from './scenario.js';
+import { ENDING_CATALOG } from './scenario.js';
 
 export function createInitialState(
   sessionId: string,
@@ -30,10 +26,8 @@ export function createInitialState(
       trust: 32,
       anger: 76,
       vulnerability: 38,
-      hiddenProgress: 0,
     },
     flags: {
-      forbiddenPhraseCount: 0,
       namedSpecificHurt: false,
       ownedChoice: false,
       concretePlan: false,
@@ -52,14 +46,8 @@ export interface AppliedDirectorResult {
 export function applyDirectorDecision(
   current: GameState,
   originalDecision: DirectorDecision,
-  playerLine: string,
   round: number,
 ): AppliedDirectorResult {
-  const deterministicRestriction = containsForbiddenPhrase(playerLine);
-  const restrictionHit = deterministicRestriction;
-  const penalty = restrictionHit
-    ? { trust: -7, anger: 6, vulnerability: -2 }
-    : { trust: 0, anger: 0, vulnerability: 0 };
   const mergedDiscoveries = {
     namedSpecificHurt:
       current.flags.namedSpecificHurt ||
@@ -74,40 +62,9 @@ export function applyDirectorDecision(
       current.flags.relationshipChosen ||
       originalDecision.discoveries.relationshipChosen,
   };
-  const potentialHiddenProgress =
-    Number(mergedDiscoveries.namedSpecificHurt) +
-    Number(
-      mergedDiscoveries.ownedChoice ||
-        mergedDiscoveries.relationshipChosen,
-    ) +
-    Number(
-      mergedDiscoveries.concretePlan &&
-        mergedDiscoveries.relationshipChosen,
-    );
-  const validatedHiddenIncrement =
-    potentialHiddenProgress > current.metrics.hiddenProgress ? 1 : 0;
 
   const decision = DirectorDecisionSchema.parse({
     ...originalDecision,
-    restrictionHit,
-    delta: {
-      trust: clamp(originalDecision.delta.trust + penalty.trust, -18, 16),
-      anger: clamp(originalDecision.delta.anger + penalty.anger, -16, 22),
-      vulnerability: clamp(
-        originalDecision.delta.vulnerability + penalty.vulnerability,
-        -12,
-        16,
-      ),
-      hiddenProgress: restrictionHit
-        ? 0
-        : Math.max(
-            originalDecision.delta.hiddenProgress,
-            validatedHiddenIncrement,
-          ),
-    },
-    event: restrictionHit
-      ? createForbiddenEvent(round)
-      : originalDecision.event,
   });
 
   const state = GameStateSchema.parse({
@@ -130,17 +87,8 @@ export function applyDirectorDecision(
         0,
         100,
       ),
-      hiddenProgress: clamp(
-        current.metrics.hiddenProgress + decision.delta.hiddenProgress,
-        0,
-        3,
-      ),
     },
-    flags: {
-      forbiddenPhraseCount:
-        current.flags.forbiddenPhraseCount + (restrictionHit ? 1 : 0),
-      ...mergedDiscoveries,
-    },
+    flags: mergedDiscoveries,
     activeEvent: decision.event,
   });
 
@@ -148,20 +96,13 @@ export function applyDirectorDecision(
 }
 
 export function selectEnding(state: GameState): EndingId | null {
-  if (state.flags.forbiddenPhraseCount >= 2) {
-    return 'apology-allergen';
-  }
-
   const relationshipCollapsed =
     state.metrics.trust <= 10 || state.metrics.anger >= 90;
-  const firstRestrictionGetsAReply =
-    state.round === 1 && state.flags.forbiddenPhraseCount === 1;
-  if (relationshipCollapsed && !firstRestrictionGetsAReply) {
+  if (relationshipCollapsed) {
     return 'elevator-going-down';
   }
 
-  const hiddenGoalComplete =
-    state.metrics.hiddenProgress >= 3 &&
+  const strongRepair =
     state.flags.namedSpecificHurt &&
     state.flags.concretePlan &&
     state.flags.relationshipChosen;
@@ -170,8 +111,7 @@ export function selectEnding(state: GameState): EndingId | null {
     state.round >= 4 &&
     state.metrics.trust >= 72 &&
     state.metrics.anger <= 40 &&
-    hiddenGoalComplete &&
-    state.flags.forbiddenPhraseCount === 0
+    strongRepair
   ) {
     return 'breakfast-stays-warm';
   }
@@ -186,12 +126,6 @@ export function selectEnding(state: GameState): EndingId | null {
   }
 
   if (state.round >= state.maxRounds) {
-    if (
-      state.flags.forbiddenPhraseCount > 0 &&
-      state.metrics.trust < 35
-    ) {
-      return 'apology-allergen';
-    }
     return 'elevator-going-down';
   }
 

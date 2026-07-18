@@ -149,7 +149,6 @@ export class GameSessionService {
       const applied = applyDirectorDecision(
         stored.state,
         rawDecision,
-        playerLine,
         round,
       );
       const performance = ActorPerformanceSchema.parse({

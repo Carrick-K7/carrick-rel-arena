@@ -85,12 +85,7 @@ export class GameAgents {
       input: {
         lockedEnding: context.lockedEnding,
         finalState: context.state,
-        goals: {
-          public: context.briefing.publicGoal,
-          hidden:
-            '准确看见对方在家人面前被晾下的难堪，并提出可验证的共同修复行动',
-          restriction: '全局禁用直接道歉表达',
-        },
+        goal: context.briefing.goal,
         transcript: context.transcript,
       },
       context,

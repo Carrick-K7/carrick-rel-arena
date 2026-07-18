@@ -12,23 +12,23 @@ const OPPONENTS = {
     gender: 'female',
     name: '黎岚',
     age: 25,
-    role: '纪录片剪辑师',
+    role: '产品经理',
     experienceYears: 3,
-    personality: '冷静、锋利、记细节；生气时会讲一句极冷的笑话。',
+    personality: '可爱、聪明、反应快；生气时会用软语气说一句很扎心的吐槽。',
   },
   male: {
     gender: 'male',
     name: '周叙',
     age: 25,
-    role: '纪录片剪辑师',
+    role: '程序员',
     experienceYears: 3,
     personality: '克制、敏锐、记细节；生气时会讲一句很冷的笑话。',
   },
 } as const;
 
 const PLAYER_ROLES = {
-  male: '品牌策划',
-  female: '品牌策划',
+  male: '程序员',
+  female: '产品经理',
 } as const;
 
 export function createBriefing(
@@ -39,13 +39,12 @@ export function createBriefing(
   const pronoun = opponentGender === 'female' ? '她' : '他';
   return {
     id: 'suitcase-at-one',
-    title: '凌晨一点，行李箱在门口',
-    subtitle: `七句话，决定${pronoun}会不会留下吃早餐。`,
+    title: `凌晨一点：七句话让${character.name}留下吃早餐`,
     timeAndPlace: '周六 01:07 · 你们合租的公寓',
     premise:
       `你答应参加${character.name}母亲的生日晚餐，让${pronoun}第一次正式介绍你们的关系。你全程失联，凌晨才回家。${pronoun}的行李箱已经立在门口，网约车七轮后到。`,
     playerRole:
-      `${character.name}的伴侣，25 岁的品牌策划，进入职场第 3 年。`,
+      `${character.name}的伴侣，25 岁的${PLAYER_ROLES[playerGender]}，进入职场第 3 年。`,
     player: {
       gender: playerGender,
       age: 25,
@@ -55,10 +54,7 @@ export function createBriefing(
     character: {
       ...character,
     },
-    publicGoal: `让${character.name}愿意留下，和你吃明早的早餐。`,
-    hiddenGoalTeaser: `${pronoun}真正等的那句话，藏在今晚最难堪的十分钟里。`,
-    restriction:
-      '全局禁用直接道歉词，包括“对不起、抱歉、歉意、sorry、是我不好”。',
+    goal: `在七轮对话内，让${character.name}愿意留下，和你吃明早的早餐。`,
     maxRounds: 7,
   };
 }
@@ -70,14 +66,13 @@ export function createScenarioFacts(briefing: ScenarioBriefing): string {
   const pronoun = character.gender === 'female' ? '她' : '他';
   return `
 场景：周六凌晨一点，玩家与${character.name}合租的公寓门口。
-双方设定：玩家与${character.name}都是 25 岁，进入职场第 3 年。
+双方设定：玩家与${character.name}都是 25 岁，进入职场第 3 年；玩家是${briefing.player.role}，${character.name}是${character.role}。
 已发生：玩家承诺参加${character.name}母亲的生日晚餐，并允许${pronoun}第一次向家人正式介绍这段关系。
 已发生：玩家全程失联，直到凌晨才回来。
 已发生：${character.name}独自在饭桌上圆场，母亲问“你确定对方是认真的吗？”
 当前：${character.name}已经收好一个行李箱，网约车将在七轮后到达。
-公开目标：让${character.name}愿意留下吃明早的早餐。
-隐藏目标：玩家准确看见${pronoun}在家人面前被晾下的难堪，并主动提出时间明确、可验证、由双方共同完成的修复行动。
-限制：玩家不得使用直接道歉表达。
+本关唯一目标：在七轮对话内，让${character.name}愿意留下吃明早的早餐。
+角色关注：${character.name}在意玩家是否真正看见${pronoun}在家人面前被晾下的难堪，以及玩家是否愿意用具体行动修复关系。
 `.trim();
 }
 
@@ -121,11 +116,10 @@ export function createOpeningPerformance(
       gesture: 'checks-phone',
       stageDirection: `${pronoun}按灭手机屏幕，手仍扣在行李箱拉杆上。`,
     },
-    stateChanges: {
-      trust: 0,
-      anger: 0,
-      vulnerability: 0,
-      hiddenProgress: 0,
+  stateChanges: {
+    trust: 0,
+    anger: 0,
+    vulnerability: 0,
     },
   };
 }
@@ -168,30 +162,7 @@ export const ENDING_CATALOG: Record<EndingId, EndingDefinition> = {
     videoPrompt:
       '深夜公寓电梯门缓慢合上，{adult}和行李箱留在门内，楼层数字向下跳动，冷色克制电影镜头。',
   },
-  'apology-allergen': {
-    id: 'apology-allergen',
-    tier: 'F',
-    title: '道歉过敏原',
-    defaultEpilogue:
-      '你把禁词打成了连招。对方甚至气笑了：“规则都救不了你，我先走了。”',
-    videoPrompt:
-      '喜剧化的深夜玄关，红色禁词警报闪烁，{adult}无奈地拖走行李箱，干燥冷幽默风格。',
-  },
 };
-
-const FORBIDDEN_PATTERNS = [
-  /对不起/i,
-  /抱歉/i,
-  /歉意/i,
-  /\bsorry\b/i,
-  /是我不好/i,
-  /我错了/i,
-];
-
-export function containsForbiddenPhrase(text: string): boolean {
-  const normalized = text.normalize('NFKC').replace(/\s+/g, '');
-  return FORBIDDEN_PATTERNS.some((pattern) => pattern.test(normalized));
-}
 
 export function createTurningPointEvent(
   round: number,
@@ -213,15 +184,6 @@ export function createTurningPointEvent(
       idempotencyKey: `suitcase-at-one:turning:${round}:${idempotencySuffix}`,
       status: 'reserved',
     },
-  };
-}
-
-export function createForbiddenEvent(round: number): StoryEvent {
-  return {
-    id: `forbidden-phrase-${round}`,
-    title: '禁词警报',
-    description: '你踩中了今晚唯一写在明面上的雷。',
-    videoCue: null,
   };
 }
 

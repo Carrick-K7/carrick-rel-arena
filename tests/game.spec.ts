@@ -87,36 +87,25 @@ test('plays the authored high-quality path into the S ending', async ({
   );
 });
 
-test('enforces the apology restriction and exposes the special ending', async ({
+test('keeps one clear goal and allows direct apologies', async ({
   page,
 }) => {
   test.setTimeout(60_000);
   await page.goto('./');
-  const provider = await readProvider(page);
+  await expect(page.getByText('挑战目标', { exact: true })).toBeVisible();
+  await expect(page.getByText('隐藏目标', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('特殊限制', { exact: true })).toHaveCount(0);
   await page.getByTestId('start-game').click();
 
-  await page.getByTestId('dialogue-input').fill('对 不 起，我来晚了。');
-  await page.getByTestId('send-line').click();
-  await expect(page.getByTestId('restriction-count')).toContainText(
-    '已触发 1 次',
-    {
-      timeout: 30_000,
-    },
+  await page.getByTestId('dialogue-input').fill(
+    '对不起，我来晚了。我想先听你把今晚发生的事说完。',
   );
-
-  await page.getByTestId('dialogue-input').fill('抱歉，我又说了一次。');
   await page.getByTestId('send-line').click();
-  await expect(page.getByTestId('result-screen')).toBeVisible({
+  await expect(page.getByTestId('round-counter')).toContainText('6', {
     timeout: 30_000,
   });
-  await expect(page.getByTestId('result-screen')).toContainText(
-    '道歉过敏原',
-  );
-  if (provider === 'mock') {
-    await expect(page.getByTestId('result-screen')).toContainText(
-      '禁词连招大师',
-    );
-  }
+  await expect(page.getByTestId('dialogue-input')).toBeEnabled();
+  await expect(page.getByTestId('result-screen')).toHaveCount(0);
 });
 
 test('keeps the game usable at a mobile viewport', async ({ page }) => {
@@ -136,10 +125,16 @@ test('switches to the male opponent when the player chooses the woman role', asy
 }) => {
   await page.goto('./');
   await expect(page.getByText('黎岚，25 岁')).toBeVisible();
+  await expect(
+    page.getByText(/产品经理 · 职场第 3 年/).first(),
+  ).toBeVisible();
+  await expect(page.getByTestId('choose-male')).toContainText('程序员');
   await expect(page.locator('img[alt^="黎岚"]')).toBeVisible();
 
   await page.getByTestId('choose-female').click();
   await expect(page.getByText('周叙，25 岁')).toBeVisible();
+  await expect(page.getByText(/程序员 · 职场第 3 年/).first()).toBeVisible();
+  await expect(page.getByTestId('choose-female')).toContainText('产品经理');
   await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
 
   await page.getByTestId('start-game').click();

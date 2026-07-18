@@ -76,18 +76,7 @@ export function GameStage({
       <section className="game-brief">
         <p>
           <span>目标</span>
-          {briefing.publicGoal}
-        </p>
-        <p
-          className={
-            state.flags.forbiddenPhraseCount > 0 ? 'is-broken' : ''
-          }
-          data-testid="restriction-count"
-        >
-          <span>限制</span>
-          {state.flags.forbiddenPhraseCount > 0
-            ? `禁词已触发 ${state.flags.forbiddenPhraseCount} 次`
-            : briefing.restriction}
+          {briefing.goal}
         </p>
       </section>
 
@@ -111,17 +100,6 @@ export function GameStage({
               value={state.metrics.anger}
               kind="anger"
             />
-            <p className="hidden-progress" aria-label="隐藏目标进度">
-              暗线{' '}
-              {Array.from({ length: 3 }, (_, index) => (
-                <i
-                  key={index}
-                  className={
-                    index < state.metrics.hiddenProgress ? 'is-found' : ''
-                  }
-                />
-              ))}
-            </p>
           </div>
 
           <section className="latest-reply" aria-live="polite">

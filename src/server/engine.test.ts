@@ -7,7 +7,6 @@ import {
   selectEnding,
 } from './engine.js';
 import { MockAiProvider } from './providers/mock.js';
-import { containsForbiddenPhrase } from './scenario.js';
 import { GameSessionService } from './sessions.js';
 
 const neutralDecision: DirectorDecision = {
@@ -16,7 +15,6 @@ const neutralDecision: DirectorDecision = {
     trust: 0,
     anger: 0,
     vulnerability: 0,
-    hiddenProgress: 0,
   },
   discoveries: {
     namedSpecificHurt: false,
@@ -24,7 +22,6 @@ const neutralDecision: DirectorDecision = {
     concretePlan: false,
     relationshipChosen: false,
   },
-  restrictionHit: false,
   event: null,
   actorBrief: '保持戒备。',
   shouldEnd: false,
@@ -32,46 +29,34 @@ const neutralDecision: DirectorDecision = {
 };
 
 describe('deterministic game engine', () => {
-  it('detects normalized forbidden apology phrases', () => {
-    expect(containsForbiddenPhrase('对 不 起，我来晚了')).toBe(true);
-    expect(containsForbiddenPhrase('SORRY，今晚是我失约')).toBe(true);
-    expect(containsForbiddenPhrase('我看见你在饭桌上的难堪')).toBe(false);
-  });
-
-  it('applies a deterministic penalty when the model misses a restriction', () => {
-    const state = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
-    const applied = applyDirectorDecision(
-      state,
-      neutralDecision,
-      '对不起',
-      1,
-    );
-
-    expect(applied.decision.restrictionHit).toBe(true);
-    expect(applied.state.flags.forbiddenPhraseCount).toBe(1);
-    expect(applied.state.metrics.trust).toBeLessThan(state.metrics.trust);
-    expect(applied.state.metrics.anger).toBeGreaterThan(state.metrics.anger);
-    expect(applied.state.activeEvent?.id).toBe('forbidden-phrase-1');
-  });
-
-  it('ignores a model restriction false positive for clean dialogue', () => {
+  it('applies model deltas and keeps discovered relationship facts', () => {
     const state = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
     const applied = applyDirectorDecision(
       state,
       {
         ...neutralDecision,
-        restrictionHit: true,
+        delta: {
+          trust: 8,
+          anger: -6,
+          vulnerability: 4,
+        },
+        discoveries: {
+          ...neutralDecision.discoveries,
+          namedSpecificHurt: true,
+        },
       },
-      '我看见你在饭桌上的难堪，这段关系对我很重要。',
       1,
     );
 
-    expect(applied.decision.restrictionHit).toBe(false);
-    expect(applied.state.flags.forbiddenPhraseCount).toBe(0);
-    expect(applied.state.activeEvent).toBeNull();
+    expect(applied.state.metrics).toEqual({
+      trust: 40,
+      anger: 70,
+      vulnerability: 42,
+    });
+    expect(applied.state.flags.namedSpecificHurt).toBe(true);
   });
 
-  it('locks the four ending gates from canonical state', () => {
+  it('locks the three ending gates from canonical state', () => {
     const base = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
 
     expect(
@@ -82,10 +67,8 @@ describe('deterministic game engine', () => {
           trust: 80,
           anger: 40,
           vulnerability: 70,
-          hiddenProgress: 3,
         },
         flags: {
-          forbiddenPhraseCount: 0,
           namedSpecificHurt: true,
           ownedChoice: true,
           concretePlan: true,
@@ -102,7 +85,6 @@ describe('deterministic game engine', () => {
           trust: 60,
           anger: 45,
           vulnerability: 50,
-          hiddenProgress: 2,
         },
         flags: {
           ...base.flags,
@@ -114,40 +96,11 @@ describe('deterministic game engine', () => {
     expect(
       selectEnding({
         ...base,
-        round: 2,
-        flags: {
-          ...base.flags,
-          forbiddenPhraseCount: 2,
-        },
-      }),
-    ).toBe('apology-allergen');
-
-    expect(
-      selectEnding({
-        ...base,
         round: 7,
       }),
     ).toBe('elevator-going-down');
   });
 
-  it('keeps one reply after the first forbidden phrase', () => {
-    const base = createInitialState('7401c52f-e7f6-4cd6-a4f4-934dc783cf1f');
-
-    expect(
-      selectEnding({
-        ...base,
-        round: 1,
-        metrics: {
-          ...base.metrics,
-          anger: 90,
-        },
-        flags: {
-          ...base.flags,
-          forbiddenPhraseCount: 1,
-        },
-      }),
-    ).toBeNull();
-  });
 });
 
 describe('mock three-agent session', () => {
@@ -157,20 +110,29 @@ describe('mock three-agent session', () => {
       5,
     );
     const session = service.create('female');
+    const malePlayerSession = service.create('male');
 
     expect(session.state.playerGender).toBe('female');
     expect(session.state.opponentGender).toBe('male');
     expect(session.briefing.player).toEqual({
       gender: 'female',
       age: 25,
-      role: '品牌策划',
+      role: '产品经理',
       experienceYears: 3,
     });
     expect(session.briefing.character).toMatchObject({
       name: '周叙',
       gender: 'male',
       age: 25,
+      role: '程序员',
       experienceYears: 3,
+    });
+    expect(malePlayerSession.briefing.player.role).toBe('程序员');
+    expect(malePlayerSession.briefing.character).toMatchObject({
+      name: '黎岚',
+      gender: 'female',
+      role: '产品经理',
+      personality: expect.stringContaining('可爱'),
     });
   });
 
@@ -194,7 +156,7 @@ describe('mock three-agent session', () => {
     expect(session.verdict?.keyMoments.length).toBeGreaterThan(0);
   });
 
-  it('turns repeated forbidden phrases into the special failure', async () => {
+  it('accepts direct apologies as ordinary free-form dialogue', async () => {
     const service = new GameSessionService(
       new GameAgents(new MockAiProvider()),
       5,
@@ -207,14 +169,9 @@ describe('mock three-agent session', () => {
         '对不起，我真的没想这样。',
       )
     ).session;
-    session = (
-      await service.playTurn(
-        session.state.sessionId,
-        '抱歉，我只能再说一次。',
-      )
-    ).session;
-
-    expect(session.state.endingId).toBe('apology-allergen');
-    expect(session.verdict?.title).toBe('禁词连招大师');
+    expect(session.state.round).toBe(1);
+    expect(session.state.phase).toBe('awaiting_player');
+    expect(session.state.endingId).toBeNull();
+    expect(session.transcript.at(-2)?.text).toContain('对不起');
   });
 });

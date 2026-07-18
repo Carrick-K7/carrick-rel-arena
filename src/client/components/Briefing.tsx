@@ -33,7 +33,6 @@ const previewPerformance: ActorPerformance = {
     trust: 0,
     anger: 0,
     vulnerability: 0,
-    hiddenProgress: 0,
   },
 };
 
@@ -69,62 +68,66 @@ export function Briefing({
         <div className="briefing-copy">
           <p className="eyebrow">第一关 · 亲密关系 / 失约</p>
           <h1>{briefing.title}</h1>
-          <p className="briefing-subtitle">{briefing.subtitle}</p>
-          <p className="premise">{briefing.premise}</p>
 
-          <div className="briefing-rules">
-            <article>
-              <span>你的目标</span>
-              <strong>{briefing.publicGoal}</strong>
+          <div className="briefing-sections">
+            <article className="briefing-section">
+              <span>情景介绍</span>
+              <h2>{briefing.timeAndPlace}</h2>
+              <p>{briefing.premise}</p>
             </article>
-            <article>
-              <span>隐藏目标</span>
-              <strong>{briefing.hiddenGoalTeaser}</strong>
+
+            <article className="briefing-section briefing-section--goal">
+              <span>挑战目标</span>
+              <h2>{briefing.goal}</h2>
+              <p>你可以自由表达。每一句都会改变信任、愤怒和结局。</p>
             </article>
-            <article className="rule-danger">
-              <span>特殊限制</span>
-              <strong>{briefing.restriction}</strong>
+
+            <article className="briefing-section briefing-section--character">
+              <span>人物介绍</span>
+              <h2>
+                {briefing.character.name}，{briefing.character.age} 岁
+              </h2>
+              <p>
+                {briefing.character.role} · 职场第{' '}
+                {briefing.character.experienceYears} 年
+                <br />
+                {briefing.character.personality}
+              </p>
             </article>
+
+            <fieldset className="briefing-section role-picker">
+              <legend>扮演选择</legend>
+              <p className="role-picker__intro">
+                选择你的角色，对手会自动切换。
+              </p>
+              <div>
+                <button
+                  type="button"
+                  className={playerGender === 'male' ? 'is-selected' : ''}
+                  onClick={() => onPlayerGenderChange('male')}
+                  aria-pressed={playerGender === 'male'}
+                  data-testid="choose-male"
+                >
+                  <strong>扮演男生</strong>
+                  <span>25 岁 · 程序员 · 职场第 3 年</span>
+                </button>
+                <button
+                  type="button"
+                  className={playerGender === 'female' ? 'is-selected' : ''}
+                  onClick={() => onPlayerGenderChange('female')}
+                  aria-pressed={playerGender === 'female'}
+                  data-testid="choose-female"
+                >
+                  <strong>扮演女生</strong>
+                  <span>25 岁 · 产品经理 · 职场第 3 年</span>
+                </button>
+              </div>
+              <p className="role-picker__opponent">
+                当前对手：{briefing.character.name} ·{' '}
+                {briefing.character.gender === 'female' ? '女生' : '男生'}
+              </p>
+            </fieldset>
           </div>
-
-          <p className="character-dossier">
-            <strong>{briefing.character.name}，{briefing.character.age} 岁</strong>
-            <span>
-              {briefing.character.role} · 职场第{' '}
-              {briefing.character.experienceYears} 年 ·{' '}
-              {briefing.character.personality}
-            </span>
-          </p>
-
-          <fieldset className="role-picker">
-            <legend>选择你要扮演的角色</legend>
-            <div>
-              <button
-                type="button"
-                className={playerGender === 'male' ? 'is-selected' : ''}
-                onClick={() => onPlayerGenderChange('male')}
-                aria-pressed={playerGender === 'male'}
-                data-testid="choose-male"
-              >
-                <strong>扮演男生</strong>
-                <span>25 岁 · 品牌策划 · 职场第 3 年</span>
-              </button>
-              <button
-                type="button"
-                className={playerGender === 'female' ? 'is-selected' : ''}
-                onClick={() => onPlayerGenderChange('female')}
-                aria-pressed={playerGender === 'female'}
-                data-testid="choose-female"
-              >
-                <strong>扮演女生</strong>
-                <span>25 岁 · 品牌策划 · 职场第 3 年</span>
-              </button>
-            </div>
-            <p>
-              对手：{briefing.character.name} ·{' '}
-              {briefing.character.gender === 'female' ? '女生' : '男生'}
-            </p>
-          </fieldset>
 
           <div className="briefing-actions">
             <button

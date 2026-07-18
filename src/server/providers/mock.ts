@@ -6,10 +6,7 @@ import type {
   StateDiscoveries,
   TranscriptEntry,
 } from '../../shared/contracts.js';
-import {
-  containsForbiddenPhrase,
-  createTurningPointEvent,
-} from '../scenario.js';
+import { createTurningPointEvent } from '../scenario.js';
 import type {
   ActorContext,
   AiProvider,
@@ -87,7 +84,6 @@ function estimateTokens(value: string): number {
 export function mockDirector(context: DirectorContext): DirectorDecision {
   const text = context.playerLine;
   const state = context.state;
-  const restrictionHit = containsForbiddenPhrase(text);
   const namedSpecificHurt = HURT_PATTERN.test(text);
   const ownedChoice = OWNERSHIP_PATTERN.test(text);
   const concretePlan = PLAN_PATTERN.test(text);
@@ -144,34 +140,21 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
     anger += 20;
     vulnerability -= 8;
   }
-  if (restrictionHit) {
-    trust -= 2;
-    anger += 4;
-  }
-
   const discoveries: StateDiscoveries = {
     namedSpecificHurt,
     ownedChoice,
     concretePlan,
     relationshipChosen,
   };
-  const hasNewDiscovery =
-    (namedSpecificHurt && !state.flags.namedSpecificHurt) ||
-    (ownedChoice && !state.flags.ownedChoice) ||
-    (concretePlan && !state.flags.concretePlan) ||
-    (relationshipChosen && !state.flags.relationshipChosen);
-
   const delta: MetricDelta = {
     trust: clamp(trust, -18, 16),
     anger: clamp(anger, -16, 22),
     vulnerability: clamp(vulnerability, -12, 16),
-    hiddenProgress: hasNewDiscovery ? 1 : 0,
   };
 
   const event =
     context.round === 3 &&
-    state.metrics.hiddenProgress < 2 &&
-    !restrictionHit
+    (!state.flags.namedSpecificHurt || !state.flags.concretePlan)
       ? createTurningPointEvent(
           context.round,
           state.sessionId.slice(0, 8),
@@ -186,18 +169,19 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
     relationshipChosen,
     defensive,
     dismissive,
-    restrictionHit,
   });
 
   const projectedTrust = state.metrics.trust + delta.trust;
   const projectedAnger = state.metrics.anger + delta.anger;
-  const projectedProgress =
-    state.metrics.hiddenProgress + delta.hiddenProgress;
+  const projectedStrongRepair =
+    (state.flags.namedSpecificHurt || namedSpecificHurt) &&
+    (state.flags.concretePlan || concretePlan) &&
+    (state.flags.relationshipChosen || relationshipChosen);
   const shouldEnd =
     (context.round >= 4 &&
       projectedTrust >= 72 &&
       projectedAnger <= 40 &&
-      projectedProgress >= 3) ||
+      projectedStrongRepair) ||
     projectedTrust <= 10 ||
     projectedAnger >= 90;
 
@@ -205,7 +189,6 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
     assessment,
     delta,
     discoveries,
-    restrictionHit,
     event,
     actorBrief: buildActorBrief({
       namedSpecificHurt,
@@ -227,7 +210,7 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
 
 export function mockActor(context: ActorContext): ActorPerformance {
   const { director, state, playerLine, activeEvent } = context;
-  const forbidden = director.restrictionHit;
+  const isFemale = context.briefing.character.gender === 'female';
   const dismissive = DISMISSIVE_PATTERN.test(playerLine);
   const defensive = DEFENSIVE_PATTERN.test(playerLine);
   const hurt = HURT_PATTERN.test(playerLine);
@@ -235,24 +218,11 @@ export function mockActor(context: ActorContext): ActorPerformance {
   const ownership = OWNERSHIP_PATTERN.test(playerLine);
   const vulnerable = VULNERABLE_PATTERN.test(playerLine);
 
-  if (forbidden) {
-    return performance(
-      '你用了今晚唯一的禁词。很高效——一句话同时浪费一轮和一点信任。',
-      'angry',
-      'dry',
-      'furrowed',
-      'narrowed',
-      'smirk',
-      'holding-handle',
-      'points-door',
-      '对方轻轻敲了敲行李箱拉杆，像在给错误答案打叉。',
-      director.delta,
-    );
-  }
-
   if (dismissive) {
     return performance(
-      '原来我在饭桌上替你编的三个理由，统称“想太多”。这版剪辑真省素材。',
+      isFemale
+        ? '原来我在饭桌上替你编的三个理由，统称“想太多”。这个需求砍得真快。'
+        : '原来我在饭桌上替你编的三个理由，统称“想太多”。这个异常处理得真省事。',
       'done',
       'icy',
       'flat',
@@ -327,7 +297,9 @@ export function mockActor(context: ActorContext): ActorPerformance {
 
   if (defensive) {
     return performance(
-      '手机、加班、临时状况。你的证人都到齐了。现在轮到你本人说一句有用的。',
+      isFemale
+        ? '理由排得这么整齐，差点能进迭代了。现在轮到你本人说一句真的。'
+        : '理由清单编译通过了。现在轮到你本人，说说今晚那个故障怎么修。',
       'angry',
       'dry',
       'furrowed',
@@ -335,7 +307,9 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'smirk',
       'arms-crossed',
       'none',
-      '对方靠在墙边，像审片一样等着下一版。',
+      isFemale
+        ? '她靠在墙边，语气还是软的，问题却一个都没少。'
+        : '他靠在墙边，像等一个迟迟没修的故障。',
       director.delta,
     );
   }
@@ -391,9 +365,11 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
   const score = clamp(
     Math.round(
       state.metrics.trust * 0.55 +
-        (100 - state.metrics.anger) * 0.25 +
-        state.metrics.hiddenProgress * 8 -
-        state.flags.forbiddenPhraseCount * 10,
+        (100 - state.metrics.anger) * 0.29 +
+        Number(state.flags.namedSpecificHurt) * 4 +
+        Number(state.flags.ownedChoice) * 4 +
+        Number(state.flags.concretePlan) * 4 +
+        Number(state.flags.relationshipChosen) * 4,
     ),
     0,
     100,
@@ -403,7 +379,6 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
     'breakfast-stays-warm': '人形关系补丁',
     'suitcase-by-the-door': '试用期续杯员',
     'elevator-going-down': '理由批发市场',
-    'apology-allergen': '禁词连招大师',
   } as const;
   const roastByEnding = {
     'breakfast-stays-warm':
@@ -412,8 +387,6 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
       '你把关系从“立即卸载”抢救成了“保留观察”，更新日志还得继续写。',
     'elevator-going-down':
       `你解释得像一份完整事故报告，可惜${characterName}今晚招聘的是伴侣。`,
-    'apology-allergen':
-      '题目只禁一个词，你把它用出了俄罗斯方块消四行的气势。',
   } as const;
 
   const keyMoments = selectKeyMoments(playerLines);
@@ -425,38 +398,17 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
     title: titleByEnding[lockedEnding.endingId],
     roast: roastByEnding[lockedEnding.endingId],
     epilogue: lockedEnding.defaultEpilogue,
-    goals: {
-      publicGoal: {
-        label: `让${characterName}留下吃早餐`,
-        met:
-          lockedEnding.endingId === 'breakfast-stays-warm' ||
-          lockedEnding.endingId === 'suitcase-by-the-door',
-        detail:
-          lockedEnding.endingId === 'breakfast-stays-warm'
-            ? '对方把行李箱推回去了。'
-            : lockedEnding.endingId === 'suitcase-by-the-door'
-              ? '对方取消了车，仍保留观察期。'
-              : '对方带着行李离开了。',
-      },
-      hiddenGoal: {
-        label: '看见具体伤害，并给出共同修复行动',
-        met:
-          state.flags.namedSpecificHurt &&
-          state.flags.concretePlan &&
-          state.flags.relationshipChosen,
-        detail:
-          state.metrics.hiddenProgress >= 3
-            ? '你说中了那顿饭真正伤人的部分，也给出了可验证行动。'
-            : `隐藏目标进度 ${state.metrics.hiddenProgress}/3。`,
-      },
-      restriction: {
-        label: '全局禁用直接道歉词',
-        met: state.flags.forbiddenPhraseCount === 0,
-        detail:
-          state.flags.forbiddenPhraseCount === 0
-            ? '零禁词通关。'
-            : `共触发 ${state.flags.forbiddenPhraseCount} 次禁词。`,
-      },
+    goal: {
+      label: `让${characterName}留下吃早餐`,
+      met:
+        lockedEnding.endingId === 'breakfast-stays-warm' ||
+        lockedEnding.endingId === 'suitcase-by-the-door',
+      detail:
+        lockedEnding.endingId === 'breakfast-stays-warm'
+          ? '对方把行李箱推回去了。'
+          : lockedEnding.endingId === 'suitcase-by-the-door'
+            ? '对方取消了车，愿意留下吃早餐。'
+            : '对方带着行李离开了。',
     },
     keyMoments,
     shareText: `我在《关系修罗场》打出「${lockedEnding.title}」${lockedEnding.tier} 级结局，${score} 分，称号「${titleByEnding[lockedEnding.endingId]}」。七句话，你能让门口的行李箱留下吗？`,
@@ -492,9 +444,7 @@ function describeAssessment(signals: {
   relationshipChosen: boolean;
   defensive: boolean;
   dismissive: boolean;
-  restrictionHit: boolean;
 }): string {
-  if (signals.restrictionHit) return '玩家触发禁词，形式化道歉挤占了真实回应。';
   if (signals.dismissive) return '玩家贬低冲突，对方确认自己的感受仍未被看见。';
   if (
     signals.namedSpecificHurt &&
@@ -525,7 +475,7 @@ function buildActorBrief(signals: {
   }
   if (signals.namedSpecificHurt) return '承认对方终于看见伤口，仍要求继续说。';
   if (signals.vulnerable) return '怒意下降一格，接受脆弱，同时追问下次的安全感。';
-  if (signals.defensive) return '用剪辑师式冷笑话拆穿理由清单。';
+  if (signals.defensive) return '用一句贴合职业的冷吐槽拆穿理由清单。';
   return '保持拉杆在手，用问题把焦点推回对方承受的后果。';
 }
 
@@ -539,7 +489,6 @@ function selectKeyMoments(
         PLAN_PATTERN.test(entry.text) ||
         OWNERSHIP_PATTERN.test(entry.text);
       const hurt =
-        containsForbiddenPhrase(entry.text) ||
         DEFENSIVE_PATTERN.test(entry.text) ||
         DISMISSIVE_PATTERN.test(entry.text);
       return { entry, helped, hurt, weight: helped || hurt ? 2 : 1 };
@@ -551,7 +500,7 @@ function selectKeyMoments(
     round: entry.round,
     quote: entry.text.slice(0, 100),
     analysis: hurt
-      ? '这句话把焦点拉回理由或触发限制，让对方更确信自己仍要独自消化后果。'
+      ? '这句话把焦点拉回理由，让对方更确信自己仍要独自消化后果。'
       : helped
         ? '这句话提供了具体识别或可验证行动，关系状态因此出现实质变化。'
         : '这句话维持了对话，却缺少能让对方重新下注的具体信息。',
