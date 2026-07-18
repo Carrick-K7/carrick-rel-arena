@@ -7,7 +7,7 @@
 - 独立的导演、角色、评判三套 Agent、Prompt 与结构化结果。
 - 权威服务端状态机：情绪、信任、愤怒、隐藏目标、轮次、事件和结局条件。
 - 四个结局、称号、毒舌点评、关键对话复盘和分享文案。
-- 文字输入、浏览器语音输入、OpenAI TTS 与浏览器语音回退。
+- 文字输入、浏览器语音输入、小米 MiMo/OpenAI TTS 与浏览器语音回退。
 - 由情绪和动作数据驱动的 SVG 动态立绘。
 - 开场、转折、结局三类生成式短视频 Hook。
 - `mock`、`openai`、`deepseek` 三种文本模型模式。
@@ -22,7 +22,7 @@ cp .env.example .env
 npm run dev
 ```
 
-访问 `http://127.0.0.1:3100`。默认 `mock` 模式可直接完整试玩。
+开发模式访问 `http://127.0.0.1:3100`。默认 `mock` 模式可直接完整试玩。
 
 启用真实模型：
 
@@ -40,9 +40,28 @@ DEEPSEEK_API_KEY=...
 DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-DeepSeek 负责文本时，可额外配置 `OPENAI_API_KEY` 生成角色语音。缺少 OpenAI Key 时，客户端使用系统语音合成。
+DeepSeek 负责文本时，可独立配置小米 MiMo TTS：
 
-ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发，不能充当这个服务的 API 凭据。真实 GPT 模式需要在 OpenAI API Platform 单独配置 `OPENAI_API_KEY`。未配置 Key 时，`mock` 仍可运行完整游戏、语音回退和全部测试。
+```dotenv
+TTS_PROVIDER=auto
+MIMO_API_KEY=...
+MIMO_TTS_MODEL=mimo-v2.5-tts
+MIMO_TTS_VOICE=冰糖
+```
+
+`auto` 按“小米 MiMo → OpenAI → 浏览器系统语音”选择可用语音 Provider。服务端 TTS 未配置或请求失败时，客户端自动使用浏览器系统语音；文字和立绘流程不受影响。
+
+ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发。服务运行时通过 OpenAI API Platform 的 `OPENAI_API_KEY` 调用真实 GPT；`mock` 模式可直接运行完整游戏、语音回退和全部测试。
+
+Codex 中内置的 `gpt-image-2` 可在开发阶段生成并提交静态美术资产，消耗 Codex/ChatGPT 订阅用量。让已部署应用在玩家请求时动态生成图片属于 API 调用，需要独立的 OpenAI API Key、API 计费和相应组织权限。
+
+## 环境变量与密钥位置
+
+- 本地开发：复制 `.env.example` 为仓库根目录 `.env`；`.env` 已被 Git 忽略。
+- 本机服务：实际密钥放在 `/etc/relationship-arena/relationship-arena.env`，systemd 读取该文件。
+- 可提交声明：`.env.example` 与 `deploy/relationship-arena.env.example` 只保留空占位符。
+
+密钥只存在服务端环境中；前端构建和 `/api/capabilities` 只包含 Provider 能力标签。
 
 ## 用量与告警
 
@@ -72,7 +91,15 @@ sudo systemctl enable --now relationship-arena.service
 curl -fsS http://127.0.0.1:3100/api/health
 ```
 
-服务只监听回环地址。对已部署构建运行浏览器测试：
+生产构建使用 `/rel-arena/` 作为前端和 API 公共前缀，服务继续监听回环地址。将 [Caddy 示例](deploy/relationship-arena.caddy.example) 合并到现有 `games.carrick7.com` 站点后，公开入口为：
+
+```text
+https://games.carrick7.com/rel-arena/
+```
+
+公网 Caddy 路由只代理游戏与语音接口，并屏蔽 `/rel-arena/api/admin/*`。本机管理接口继续通过 `http://127.0.0.1:3100/api/admin/*` 使用。
+
+对已部署构建运行浏览器测试：
 
 ```bash
 npm run test:e2e:deployed

@@ -23,20 +23,22 @@ export class ApiError extends Error {
   }
 }
 
+const API_BASE = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`;
+
 export async function getCapabilities(): Promise<Capabilities> {
-  return request<Capabilities>('/api/capabilities');
+  return request<Capabilities>(`${API_BASE}/capabilities`);
 }
 
 export async function getBriefing(): Promise<ScenarioBriefing> {
   const payload = await request<{ briefing: ScenarioBriefing }>(
-    '/api/scenario',
+    `${API_BASE}/scenario`,
   );
   return payload.briefing;
 }
 
 export async function createSession(): Promise<PublicSession> {
   const payload = await request<{ session: PublicSession }>(
-    '/api/sessions',
+    `${API_BASE}/sessions`,
     {
       method: 'POST',
     },
@@ -48,13 +50,16 @@ export async function playTurn(
   sessionId: string,
   text: string,
 ): Promise<{ session: PublicSession; directorSummary: string }> {
-  return request(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  return request(
+    `${API_BASE}/sessions/${encodeURIComponent(sessionId)}/turns`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
     },
-    body: JSON.stringify({ text }),
-  });
+  );
 }
 
 export async function requestSpeech(
@@ -62,7 +67,7 @@ export async function requestSpeech(
   tone: Tone,
   sessionId: string | null,
 ): Promise<Blob | null> {
-  const response = await fetch('/api/speech', {
+  const response = await fetch(`${API_BASE}/speech`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -10,17 +10,69 @@ const TONE_INSTRUCTIONS: Record<Tone, string> = {
 };
 
 export interface TtsConfig {
+  provider: 'mimo' | 'openai' | 'browser';
   apiKey: string | null;
   model: string;
   voice: string;
+  baseUrl: string;
+}
+
+export interface TtsResult {
+  audio: Buffer;
+  contentType: 'audio/wav' | 'audio/mpeg';
+  provider: 'mimo' | 'openai';
+  model: string;
 }
 
 export function readTtsConfig(): TtsConfig {
-  const apiKey = process.env.OPENAI_API_KEY?.trim() || null;
+  const requested = (
+    process.env.TTS_PROVIDER?.trim().toLowerCase() || 'auto'
+  );
+  if (!['auto', 'mimo', 'openai', 'browser'].includes(requested)) {
+    throw new Error(
+      `TTS_PROVIDER must be auto, mimo, openai, or browser; received ${requested}`,
+    );
+  }
+  const mimoApiKey = process.env.MIMO_API_KEY?.trim() || null;
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || null;
+
+  if (
+    (requested === 'auto' && mimoApiKey) ||
+    (requested === 'mimo' && mimoApiKey)
+  ) {
+    return {
+      provider: 'mimo',
+      apiKey: mimoApiKey,
+      model:
+        process.env.MIMO_TTS_MODEL?.trim() || 'mimo-v2.5-tts',
+      voice: process.env.MIMO_TTS_VOICE?.trim() || '冰糖',
+      baseUrl:
+        process.env.MIMO_BASE_URL?.trim() ||
+        'https://api.xiaomimimo.com/v1',
+    };
+  }
+
+  if (
+    (requested === 'auto' && openAiApiKey) ||
+    (requested === 'openai' && openAiApiKey)
+  ) {
+    return {
+      provider: 'openai',
+      apiKey: openAiApiKey,
+      model: process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
+      voice: process.env.OPENAI_TTS_VOICE?.trim() || 'marin',
+      baseUrl:
+        process.env.OPENAI_BASE_URL?.trim() ||
+        'https://api.openai.com/v1',
+    };
+  }
+
   return {
-    apiKey,
-    model: process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
-    voice: process.env.OPENAI_TTS_VOICE?.trim() || 'marin',
+    provider: 'browser',
+    apiKey: null,
+    model: 'web-speech-api',
+    voice: 'system-default',
+    baseUrl: '',
   };
 }
 
@@ -28,10 +80,23 @@ export async function synthesizeSpeech(
   config: TtsConfig,
   text: string,
   tone: Tone,
-): Promise<Buffer | null> {
+): Promise<TtsResult | null> {
   if (!config.apiKey) return null;
+  if (config.provider === 'mimo') {
+    return synthesizeMiMo(config, text, tone);
+  }
+  if (config.provider === 'openai') {
+    return synthesizeOpenAi(config, text, tone);
+  }
+  return null;
+}
 
-  const response = await fetch('https://api.openai.com/v1/audio/speech', {
+async function synthesizeOpenAi(
+  config: TtsConfig,
+  text: string,
+  tone: Tone,
+): Promise<TtsResult> {
+  const response = await fetch(`${config.baseUrl}/audio/speech`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -54,5 +119,87 @@ export async function synthesizeSpeech(
     );
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  return {
+    audio: Buffer.from(await response.arrayBuffer()),
+    contentType: 'audio/mpeg',
+    provider: 'openai',
+    model: config.model,
+  };
+}
+
+interface MiMoSpeechPayload {
+  choices?: Array<{
+    message?: {
+      audio?: {
+        data?: string;
+      };
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+}
+
+async function synthesizeMiMo(
+  config: TtsConfig,
+  text: string,
+  tone: Tone,
+): Promise<TtsResult> {
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'api-key': config.apiKey ?? '',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        {
+          role: 'user',
+          content: TONE_INSTRUCTIONS[tone],
+        },
+        {
+          role: 'assistant',
+          content: text,
+        },
+      ],
+      audio: {
+        format: 'wav',
+        voice: config.voice,
+      },
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `MiMo TTS HTTP ${response.status}: ${body.slice(0, 240)}`,
+    );
+  }
+
+  let payload: MiMoSpeechPayload;
+  try {
+    payload = JSON.parse(body) as MiMoSpeechPayload;
+  } catch {
+    throw new Error('MiMo TTS returned invalid HTTP JSON');
+  }
+  if (payload.error?.message) {
+    throw new Error(`MiMo TTS: ${payload.error.message}`);
+  }
+  const encoded = payload.choices?.[0]?.message?.audio?.data;
+  if (!encoded) {
+    throw new Error('MiMo TTS returned no audio data');
+  }
+  const audio = Buffer.from(encoded, 'base64');
+  if (audio.length === 0) {
+    throw new Error('MiMo TTS returned empty audio data');
+  }
+  return {
+    audio,
+    contentType: 'audio/wav',
+    provider: 'mimo',
+    model: config.model,
+  };
 }

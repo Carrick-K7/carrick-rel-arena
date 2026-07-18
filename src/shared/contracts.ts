@@ -245,7 +245,7 @@ export const CapabilitiesSchema = z.strictObject({
   textProvider: z.enum(['mock', 'openai', 'deepseek']),
   remoteText: z.boolean(),
   serverTts: z.boolean(),
-  ttsProvider: z.enum(['openai', 'browser']),
+  ttsProvider: z.enum(['mimo', 'openai', 'browser']),
   videoHooks: z.literal('reserved'),
   sessionStorage: z.literal('memory-ttl'),
   usageTracking: z.literal('enabled'),

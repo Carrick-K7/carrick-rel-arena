@@ -43,7 +43,11 @@ export function Briefing({
   return (
     <main className="briefing-screen">
       <header className="brand-bar">
-        <a className="brand" href="/" aria-label="关系修罗场首页">
+        <a
+          className="brand"
+          href={import.meta.env.BASE_URL}
+          aria-label="关系修罗场首页"
+        >
           <span className="brand__mark">修</span>
           <span>
             <b>关系修罗场</b>

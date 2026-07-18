@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development tsx watch src/server/index.ts",
-    "build": "vite build && tsc -p tsconfig.server.json",
+    "build": "APP_BASE_PATH=/rel-arena/ vite build && tsc -p tsconfig.server.json",
     "start": "NODE_ENV=production node dist/server/server/index.js",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",

@@ -1,8 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3100';
 const externalServer = process.env.E2E_EXTERNAL === '1';
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ??
+  (externalServer
+    ? 'http://127.0.0.1:3100'
+    : 'http://127.0.0.1:3101');
+const testUrl = new URL(baseURL);
 
 export default defineConfig({
   testDir: './tests',
@@ -28,8 +32,8 @@ export default defineConfig({
         timeout: 120_000,
         env: {
           AI_PROVIDER: 'mock',
-          HOST: '127.0.0.1',
-          PORT: '3100',
+          HOST: testUrl.hostname,
+          PORT: testUrl.port || '3101',
           USAGE_LOG_PATH: '/tmp/relationship-arena-e2e-usage.jsonl',
           USAGE_ALERT_LOG_PATH:
             '/tmp/relationship-arena-e2e-alerts.jsonl',

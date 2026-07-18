@@ -1,0 +1,17 @@
+games.carrick7.com {
+	redir /rel-arena /rel-arena/ 308
+
+	handle /rel-arena/api/admin/* {
+		respond 404
+	}
+
+	handle /rel-arena/* {
+		reverse_proxy 127.0.0.1:3100
+	}
+
+	handle {
+		root * /var/www/games.carrick7.com/current
+		encode gzip
+		file_server
+	}
+}

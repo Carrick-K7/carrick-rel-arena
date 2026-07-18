@@ -8,9 +8,11 @@ Carrick Games 的运行形态是静态页面 + Canvas 游戏类，当前发布�
 
 集成方式：
 
-1. 本项目独立域名部署，例如 `arena.carrick7.com`。
-2. Carrick Games 增加一个外链入口和封面卡。
+1. 本项目通过 `https://games.carrick7.com/rel-arena/` 独立服务端运行。
+2. Carrick Games 后续增加一个入口和封面卡。
 3. 分享链接直接落到本项目的具体关卡。
+
+Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继续由 Carrick Games 静态发布目录处理。应用通过 `APP_BASE_PATH=/rel-arena` 同时生成前端资源地址和服务端前缀兼容路由。
 
 ## 2. 逻辑架构
 
@@ -32,7 +34,10 @@ Express Orchestrator
   │    ├─ Mock
   │    ├─ OpenAI Responses API
   │    └─ DeepSeek Chat Completions
-  ├─ OpenAI TTS adapter
+  ├─ TTS adapter
+  │    ├─ Xiaomi MiMo V2.5 TTS
+  │    ├─ OpenAI TTS
+  │    └─ Browser speech fallback
   ├─ Usage ledger + pricing estimator
   ├─ Budget/error alerts + optional webhook
   └─ Video hook adapter (reserved)
@@ -223,7 +228,7 @@ ChatGPT 订阅适合产品开发期间使用 Codex 和 ChatGPT。应用运行时
 原型推荐：
 
 - 文字：`gpt-5.4-mini`，当前公开价格为每百万输入 Token $0.75、输出 Token $4.50，支持 Structured Outputs。[模型页](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
-- 语音：`gpt-4o-mini-tts`，支持中文、流式音频和语气指令，页面需要披露 AI 合成语音。[TTS 指南](https://developers.openai.com/api/docs/guides/text-to-speech)
+- 语音：默认使用小米 `mimo-v2.5-tts`，也可使用 `gpt-4o-mini-tts`；页面明确披露 AI 合成语音。[小米 MiMo TTS 指南](https://mimo.mi.com/docs/zh-CN/usage-guide/speech-synthesis) / [OpenAI TTS 指南](https://developers.openai.com/api/docs/guides/text-to-speech)
 - 后续质量基准：用 GPT-5.6 Terra 与当前默认模型做固定轨迹评测。OpenAI 当前模型指南将 Terra 定位为质量与成本平衡档。[模型指南](https://developers.openai.com/api/docs/guides/latest-model)
 
 按 7 轮、15 次文本调用、约 45K 输入 Token 与 3.4K 输出 Token 估算，`gpt-5.4-mini` 文本成本约 **$0.05/局**。语音成本单独统计，实际值以调用量和官方账单为准。
@@ -238,11 +243,17 @@ DeepSeek API 提供 OpenAI 兼容的 Chat Completions 接口。2026-07-17 的公
 
 同一假设下，Flash 文本成本约 **$0.007/局**。它适合低成本内测和大量固定轨迹评测。JSON Output 偶尔会返回空内容，服务端已设计解析校验与一次重试；严格 Tool Schema 当前属于 Beta。[JSON Output 指南](https://api-docs.deepseek.com/guides/json_mode/)
 
-DeepSeek 文本方案搭配浏览器系统语音或 OpenAI TTS。首版 Provider 选择建议：
+DeepSeek 文本方案搭配小米 MiMo、OpenAI TTS 或浏览器系统语音。首版 Provider 选择建议：
 
-1. 公开精品体验使用 OpenAI 文本 + OpenAI TTS。
+1. 公开精品体验使用 DeepSeek/OpenAI 文本 + 小米 MiMo TTS。
 2. 回归评测和成本压力测试使用 DeepSeek V4 Flash。
 3. 每周对相同 30 条轨迹比较角色一致性、Schema 成功率、延迟和结局合理性。
+
+`TTS_PROVIDER=auto` 的启动选择顺序为 MiMo → OpenAI → 浏览器。运行中服务端 TTS 出错时，角色文字先正常展示，客户端捕获音频错误并调用 Web Speech API，不阻塞对话回合。图片继续使用代码内 SVG 动态立绘；视频接口保持 Hook 状态，未配置生成供应商时不发起请求。
+
+### `gpt-image-2` 使用边界
+
+Codex/ChatGPT 订阅内置的 `gpt-image-2` 可用于开发阶段生成静态图片资产并纳入版本库。玩家触发的动态图片生成使用 OpenAI API Key、API 计费和相应组织权限。[OpenAI 图像生成指南](https://developers.openai.com/api/docs/guides/image-generation)
 
 DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`、`completion_tokens`、`reasoning_tokens` 和 `total_tokens`。缓存命中量按 DeepSeek 缓存单价计算。
 
@@ -257,7 +268,7 @@ DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_to
 | 测试 | Vitest + Playwright | reducer 单测与完整交互路径分别覆盖 |
 | 会话 | 进程内 Map + TTL | 原型零运维；生产替换 Redis |
 | 立绘 | SVG + CSS Motion | 情绪驱动、体积小、可测试；数据协议可接 Live2D |
-| 音频 | OpenAI TTS + Web Speech fallback | 真实 AI 声音与无 Key 演示路径同时成立 |
+| 音频 | MiMo/OpenAI TTS + Web Speech fallback | 真实 AI 声音与无 Key 演示路径同时成立 |
 
 ## 10. 目录结构
 
@@ -293,6 +304,7 @@ relationship-arena/
   deploy/
     relationship-arena.service
     relationship-arena.env.example
+    relationship-arena.caddy.example
   var/
     .gitkeep
   AGENTS.md

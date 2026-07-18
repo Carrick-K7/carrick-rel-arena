@@ -40,7 +40,7 @@ interface TrackedModelUsage extends ModelUsage {
 interface TtsUsage {
   id: string;
   kind: 'tts';
-  provider: 'openai' | 'browser';
+  provider: 'mimo' | 'openai' | 'browser';
   model: string;
   sessionId: string | null;
   occurredAt: string;
@@ -159,7 +159,7 @@ export class UsageTracker {
   }
 
   recordTts(input: {
-    provider: 'openai' | 'browser';
+    provider: 'mimo' | 'openai' | 'browser';
     model: string;
     sessionId: string | null;
     success: boolean;

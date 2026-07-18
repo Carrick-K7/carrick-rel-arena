@@ -50,7 +50,11 @@ export function GameStage({
   return (
     <main className="game-screen">
       <header className="game-topbar">
-        <a className="brand brand--small" href="/" aria-label="关系修罗场">
+        <a
+          className="brand brand--small"
+          href={import.meta.env.BASE_URL}
+          aria-label="关系修罗场"
+        >
           <span className="brand__mark">修</span>
           <span>
             <b>关系修罗场</b>

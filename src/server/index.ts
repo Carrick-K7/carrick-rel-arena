@@ -53,13 +53,14 @@ const sessions = new GameSessionService(
 const ttsConfig = readTtsConfig();
 const port = parsePositiveInt(process.env.PORT, 3100);
 const host = process.env.HOST?.trim() || '127.0.0.1';
+const appBasePath = normalizeBasePath(process.env.APP_BASE_PATH);
 const isProduction = process.env.NODE_ENV === 'production';
 
 const capabilities = CapabilitiesSchema.parse({
   textProvider: provider.kind,
   remoteText: provider.kind !== 'mock',
   serverTts: Boolean(ttsConfig.apiKey),
-  ttsProvider: ttsConfig.apiKey ? 'openai' : 'browser',
+  ttsProvider: ttsConfig.provider,
   videoHooks: 'reserved',
   sessionStorage: 'memory-ttl',
   usageTracking: 'enabled',
@@ -68,6 +69,19 @@ const capabilities = CapabilitiesSchema.parse({
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 'loopback');
+if (appBasePath) {
+  app.use((request, response, next) => {
+    if (request.url === appBasePath) {
+      response.redirect(308, `${appBasePath}/`);
+      return;
+    }
+    if (request.url.startsWith(`${appBasePath}/`)) {
+      request.url = request.url.slice(appBasePath.length) || '/';
+    }
+    next();
+  });
+}
 app.use(express.json({ limit: '32kb' }));
 app.use((_request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -129,16 +143,16 @@ const SpeechInputSchema = z.strictObject({
 app.post('/api/speech', speechLimit, async (request, response) => {
   const input = SpeechInputSchema.parse(request.body);
   const startedAt = performance.now();
-  let audio: Buffer | null;
+  let speech: Awaited<ReturnType<typeof synthesizeSpeech>>;
   try {
-    audio = await synthesizeSpeech(
+    speech = await synthesizeSpeech(
       ttsConfig,
       input.text,
       input.tone,
     );
     usageTracker.recordTts({
-      provider: audio ? 'openai' : 'browser',
-      model: audio ? ttsConfig.model : 'web-speech-api',
+      provider: speech?.provider ?? 'browser',
+      model: speech?.model ?? 'web-speech-api',
       sessionId: input.sessionId ?? null,
       success: true,
       latencyMs: Math.max(
@@ -150,8 +164,8 @@ app.post('/api/speech', speechLimit, async (request, response) => {
     });
   } catch (error) {
     usageTracker.recordTts({
-      provider: ttsConfig.apiKey ? 'openai' : 'browser',
-      model: ttsConfig.apiKey ? ttsConfig.model : 'web-speech-api',
+      provider: ttsConfig.provider,
+      model: ttsConfig.model,
       sessionId: input.sessionId ?? null,
       success: false,
       latencyMs: Math.max(
@@ -163,13 +177,13 @@ app.post('/api/speech', speechLimit, async (request, response) => {
     });
     throw error;
   }
-  if (!audio) {
+  if (!speech) {
     response.status(204).end();
     return;
   }
-  response.setHeader('Content-Type', 'audio/mpeg');
+  response.setHeader('Content-Type', speech.contentType);
   response.setHeader('Cache-Control', 'private, no-store');
-  response.send(audio);
+  response.send(speech.audio);
 });
 
 app.get(
@@ -350,4 +364,9 @@ function parsePositiveInt(
 
 function readRouteParam(value: string | string[]): string {
   return Array.isArray(value) ? value[0] ?? '' : value;
+}
+
+function normalizeBasePath(value: string | undefined): string {
+  const segment = value?.trim().replace(/^\/+|\/+$/g, '') ?? '';
+  return segment ? `/${segment}` : '';
 }

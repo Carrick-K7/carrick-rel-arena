@@ -11,11 +11,17 @@ const strongLines = [
   '今晚我先把手机放下，听你把饭桌上的难堪说完。明早我们一起核对安排，我会亲口回答她那句“你是认真的吗”。',
 ];
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('relationship-arena:voice', 'off');
+  });
+});
+
 test('plays the authored high-quality path into the S ending', async ({
   page,
 }) => {
   test.setTimeout(90_000);
-  await page.goto('/');
+  await page.goto('./');
   const provider = await readProvider(page);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '凌晨一点',
@@ -81,7 +87,7 @@ test('enforces the apology restriction and exposes the special ending', async ({
   page,
 }) => {
   test.setTimeout(60_000);
-  await page.goto('/');
+  await page.goto('./');
   const provider = await readProvider(page);
   await page.getByTestId('start-game').click();
 
@@ -111,7 +117,7 @@ test('enforces the apology restriction and exposes the special ending', async ({
 
 test('keeps the game usable at a mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('./');
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 
@@ -124,7 +130,9 @@ test('keeps the game usable at a mobile viewport', async ({ page }) => {
 async function readProvider(
   page: Page,
 ): Promise<'mock' | 'openai' | 'deepseek'> {
-  const response = await page.request.get('/api/capabilities');
+  const response = await page.request.get(
+    new URL('api/capabilities', page.url()).pathname,
+  );
   const payload = (await response.json()) as {
     textProvider: 'mock' | 'openai' | 'deepseek';
   };

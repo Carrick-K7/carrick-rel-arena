@@ -93,9 +93,9 @@
 
 ### 语音
 
-- 角色台词支持 OpenAI TTS。
+- 角色台词支持小米 MiMo TTS，可选 OpenAI TTS。
 - 页面明确标注“AI 合成语音”。
-- TTS 服务异常时切换浏览器 `speechSynthesis`。
+- 服务端 TTS 未配置或异常时切换浏览器 `speechSynthesis`。
 - 浏览器提供 `SpeechRecognition` 时展示语音输入按钮。
 - 一局内允许玩家静音，设置保存在本地。
 
