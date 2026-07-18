@@ -41,6 +41,7 @@ export function GameStage({
 }: GameStageProps) {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const { state, briefing, lastPerformance } = session;
+  const roundsLeft = Math.max(0, state.maxRounds - state.round);
 
   useEffect(() => {
     const element = transcriptRef.current;
@@ -58,7 +59,7 @@ export function GameStage({
           <span className="brand__mark">修</span>
           <span>
             <b>关系修罗场</b>
-            <small>CASE 001</small>
+            <small>Relationship Arena</small>
           </span>
         </a>
         <div className="scene-title">
@@ -66,43 +67,69 @@ export function GameStage({
           <strong>{briefing.title}</strong>
         </div>
         <div className="rounds" data-testid="round-counter">
-          <span>剩余对话</span>
-          <div className="rounds__pips" aria-label={`已进行 ${state.round} 轮`}>
-            {Array.from({ length: state.maxRounds }, (_, index) => (
-              <i
-                key={index}
-                className={
-                  index < state.round
-                    ? 'is-spent'
-                    : index === state.round
-                      ? 'is-next'
-                      : ''
-                }
-              />
-            ))}
-          </div>
-          <b>
-            {Math.max(0, state.maxRounds - state.round)}
-            <small>/ {state.maxRounds}</small>
-          </b>
+          <span>还剩</span>
+          <b>{roundsLeft}</b>
+          <small>轮对话</small>
         </div>
       </header>
 
+      <section className="game-brief">
+        <p>
+          <span>目标</span>
+          {briefing.publicGoal}
+        </p>
+        <p
+          className={
+            state.flags.forbiddenPhraseCount > 0 ? 'is-broken' : ''
+          }
+          data-testid="restriction-count"
+        >
+          <span>限制</span>
+          {state.flags.forbiddenPhraseCount > 0
+            ? `禁词已触发 ${state.flags.forbiddenPhraseCount} 次`
+            : briefing.restriction}
+        </p>
+      </section>
+
       <section className="arena-layout">
         <section className="character-stage">
-          <Portrait
-            performance={lastPerformance}
-            round={state.round}
-          />
-          <div className="speech-card" aria-live="polite">
-            <div className="speech-card__speaker">
+          <Portrait performance={lastPerformance} round={state.round} />
+        </section>
+
+        <section className="conversation-stage">
+          <div className="status-strip">
+            <Gauge
+              label="信任"
+              value={state.metrics.trust}
+              kind="trust"
+            />
+            <Gauge
+              label="愤怒"
+              value={state.metrics.anger}
+              kind="anger"
+            />
+            <p className="hidden-progress" aria-label="隐藏目标进度">
+              暗线{' '}
+              {Array.from({ length: 3 }, (_, index) => (
+                <i
+                  key={index}
+                  className={
+                    index < state.metrics.hiddenProgress ? 'is-found' : ''
+                  }
+                />
+              ))}
+            </p>
+          </div>
+
+          <section className="latest-reply" aria-live="polite">
+            <p className="latest-reply__meta">
               <strong>黎岚</strong>
               <span>
-                {toneLabel(lastPerformance.tone)} ·{' '}
-                {emotionLabel(lastPerformance.emotion)}
+                {emotionLabel(lastPerformance.emotion)} ·{' '}
+                {toneLabel(lastPerformance.tone)}
               </span>
-            </div>
-            <p data-testid="latest-line">“{lastPerformance.line}”</p>
+            </p>
+            <h1 data-testid="latest-line">“{lastPerformance.line}”</h1>
             <div className="delta-row">
               <Delta
                 label="信任"
@@ -114,81 +141,23 @@ export function GameStage({
                 inverse
               />
             </div>
-          </div>
-        </section>
-
-        <aside className="play-panel">
-          <section className="status-strip">
-            <Gauge
-              label="信任"
-              value={state.metrics.trust}
-              kind="trust"
-            />
-            <Gauge
-              label="愤怒"
-              value={state.metrics.anger}
-              kind="anger"
-            />
-          </section>
-
-          <section className="objective-panel">
-            <div className="objective objective--public">
-              <span>公开目标</span>
-              <p>{briefing.publicGoal}</p>
-            </div>
-            <div className="objective objective--hidden">
-              <span>暗线进度</span>
-              <div className="secret-progress">
-                {Array.from({ length: 3 }, (_, index) => (
-                  <i
-                    key={index}
-                    className={
-                      index < state.metrics.hiddenProgress ? 'is-found' : ''
-                    }
-                  >
-                    {index < state.metrics.hiddenProgress ? '◆' : '?'}
-                  </i>
-                ))}
-              </div>
-            </div>
-            <div
-              className={`objective objective--restriction ${
-                state.flags.forbiddenPhraseCount > 0 ? 'is-broken' : ''
-              }`}
-              data-testid="restriction-count"
-            >
-              <span>禁词</span>
-              <p>
-                {state.flags.forbiddenPhraseCount > 0
-                  ? `已触发 ${state.flags.forbiddenPhraseCount} 次`
-                  : '道歉词 · 0 次'}
-              </p>
-            </div>
           </section>
 
           {state.activeEvent && (
-            <section
-              className="story-event"
-              data-testid="story-event"
-            >
-              <span className="story-event__index">剧情事件</span>
+            <section className="story-event" data-testid="story-event">
+              <span>剧情转折</span>
               <div>
                 <strong>{state.activeEvent.title}</strong>
                 <p>{state.activeEvent.description}</p>
               </div>
-              {state.activeEvent.videoCue && (
-                <span className="video-hook">
-                  ◉ {videoHookLabel(state.activeEvent.videoCue.kind)}
-                </span>
-              )}
             </section>
           )}
 
           <section className="transcript-panel">
             <div className="panel-heading">
-              <span>对话现场</span>
+              <span>对话</span>
               <small>
-                {capabilities?.remoteText ? 'AI 即时生成' : '可复现演示'}
+                {capabilities?.remoteText ? 'AI 实时生成' : '本地演示'}
               </small>
             </div>
             <div className="transcript" ref={transcriptRef}>
@@ -212,26 +181,19 @@ export function GameStage({
               )}
               {busy && (
                 <article className="message message--thinking">
-                  <span>场记</span>
-                  <p>
-                    <i />
-                    <i />
-                    <i />
-                    导演在判断这句话会落在哪里
-                  </p>
+                  <span>黎岚</span>
+                  <p>正在回应…</p>
                 </article>
               )}
             </div>
           </section>
 
-          <section className="director-earpiece" aria-live="polite">
+          <p className="director-note" aria-live="polite">
             <span>局势</span>
-            <p>
-              {directorSummary ??
-                '少解释一点。她在等你看见今晚真正落在她身上的东西。'}
-            </p>
-          </section>
-        </aside>
+            {directorSummary ??
+              '她在等你说出今晚真正落在她身上的东西。'}
+          </p>
+        </section>
       </section>
 
       <footer className="composer-wrap">
@@ -243,8 +205,8 @@ export function GameStage({
           <textarea
             value={draft}
             maxLength={240}
-            rows={2}
-            placeholder="你会怎么接？自由输入，越具体越有用…"
+            rows={3}
+            placeholder="你会怎么接？"
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={(event) => {
@@ -262,26 +224,20 @@ export function GameStage({
           <div className="composer__actions">
             <button
               type="button"
-              className={`icon-button ${recording ? 'is-active' : ''}`}
+              className={`utility-button ${recording ? 'is-active' : ''}`}
               onClick={onToggleRecording}
               disabled={!speechInputSupported || busy}
               aria-label={recording ? '停止语音输入' : '开始语音输入'}
-              title={
-                speechInputSupported
-                  ? '语音输入'
-                  : '当前浏览器未提供语音输入'
-              }
             >
-              {recording ? '■' : '●'}
+              {recording ? '停止录音' : '语音输入'}
             </button>
             <button
               type="button"
-              className={`icon-button ${voiceEnabled ? 'is-active' : ''}`}
+              className={`utility-button ${voiceEnabled ? 'is-active' : ''}`}
               onClick={onToggleVoice}
               aria-label={voiceEnabled ? '关闭 AI 语音' : '开启 AI 语音'}
-              title="AI 合成语音"
             >
-              {voiceEnabled ? '◖))' : '◖×'}
+              {voiceEnabled ? '语音已开' : '语音已关'}
             </button>
             <button
               className="send-button"
@@ -290,8 +246,7 @@ export function GameStage({
               disabled={busy || draft.trim().length === 0}
               data-testid="send-line"
             >
-              {busy ? '等她回应' : '说出口'}
-              <span>↵</span>
+              {busy ? '等待回应' : '发送'}
             </button>
           </div>
         </div>
@@ -301,10 +256,8 @@ export function GameStage({
           </p>
         )}
         <p className="ai-disclosure">
-          黎岚由 AI 扮演 · 语音为 AI 合成 · 本局结束后关系状态不延续
-          <span data-testid="usage-meter">
-            {usageLabel(session)}
-          </span>
+          AI 角色与 AI 合成语音 · 单局关系状态
+          <span data-testid="usage-meter">{usageLabel(session)}</span>
         </p>
       </footer>
     </main>
@@ -357,12 +310,6 @@ function emotionLabel(
     done: '心冷',
   };
   return labels[emotion];
-}
-
-function videoHookLabel(kind: 'opening' | 'turning_point' | 'ending') {
-  if (kind === 'opening') return '开场短视频 Hook';
-  if (kind === 'ending') return '结局短视频 Hook';
-  return '转折短视频 Hook';
 }
 
 function usageLabel(session: PublicSession): string {

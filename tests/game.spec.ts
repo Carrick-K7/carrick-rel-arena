@@ -27,7 +27,11 @@ test('plays the authored high-quality path into the S ending', async ({
     '凌晨一点',
   );
   await expect(page.getByTestId('provider-badge')).toContainText(
-    provider === 'mock' ? '本地导演模式' : '实时导演',
+    {
+      mock: '本地模式',
+      openai: 'OpenAI 在线',
+      deepseek: 'DeepSeek 在线',
+    }[provider],
   );
 
   await page.getByTestId('start-game').click();
