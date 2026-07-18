@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "AI-native replayable relationship conflict game prototype",
+  "description": "关系修炼：八关 AI 原生互动关系对话游戏",
   "engines": {
     "node": ">=22"
   },

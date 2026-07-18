@@ -12,6 +12,7 @@ import {
   CapabilitiesSchema,
   CreateSessionInputSchema,
   GenderSchema,
+  ScenarioIdSchema,
   ToneSchema,
   TurnInputSchema,
 } from '../shared/contracts.js';
@@ -22,7 +23,10 @@ import {
 } from './providers/index.js';
 import { ProviderError } from './providers/types.js';
 import { GameSessionService, SessionError } from './sessions.js';
-import { createBriefing } from './scenario.js';
+import {
+  createBriefing,
+  listScenarioSummaries,
+} from './scenario.js';
 import {
   readTtsConfig,
   synthesizeSpeech,
@@ -113,14 +117,34 @@ app.get('/api/scenario', (request, response) => {
   const playerGender = GenderSchema
     .default('male')
     .parse(request.query.playerGender);
-  response.json({ briefing: createBriefing(playerGender) });
+  response.json({
+    briefing: createBriefing('suitcase-at-one', playerGender),
+  });
+});
+
+app.get('/api/scenarios', (_request, response) => {
+  response.json({ scenarios: listScenarioSummaries() });
+});
+
+app.get('/api/scenarios/:scenarioId', (request, response) => {
+  const scenarioId = ScenarioIdSchema.parse(
+    readRouteParam(request.params.scenarioId),
+  );
+  const playerGender = GenderSchema
+    .default('male')
+    .parse(request.query.playerGender);
+  response.json({
+    briefing: createBriefing(scenarioId, playerGender),
+  });
 });
 
 app.post('/api/sessions', turnLimit, (request, response) => {
   const input = CreateSessionInputSchema.parse(request.body ?? {});
   response
     .status(201)
-    .json({ session: sessions.create(input.playerGender) });
+    .json({
+      session: sessions.create(input.scenarioId, input.playerGender),
+    });
 });
 
 app.get('/api/sessions/:sessionId', (request, response) => {
@@ -310,7 +334,7 @@ app.use(errorHandler);
 
 app.listen(port, host, () => {
   console.log(
-    `关系修罗场 running at http://${host}:${port} [${provider.kind}:${provider.model}]`,
+    `关系修炼运行于 http://${host}:${port} [${provider.kind}:${provider.model}]`,
   );
 });
 

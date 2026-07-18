@@ -18,7 +18,8 @@ Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继�
 
 ```text
 React Client
-  ├─ Briefing / Dialogue / Result
+  ├─ Scenario Select / Briefing / Dialogue / Result
+  ├─ Local progress (completion and records only)
   ├─ State-driven Portrait Renderer
   ├─ Speech input + TTS player
   └─ Share adapter
@@ -124,22 +125,22 @@ type GamePhase =
 ```ts
 interface GameState {
   sessionId: string;
-  scenarioId: 'suitcase-at-one';
+  scenarioId: ScenarioId; // eight-value enum
   playerGender: 'male' | 'female';
   opponentGender: 'male' | 'female';
   phase: GamePhase;
   round: number;
-  maxRounds: 7;
+  maxRounds: 5 | 6 | 7;
   metrics: {
-    trust: number;          // 0..100
-    anger: number;          // 0..100
-    vulnerability: number;  // 0..100
+    warmth: number;   // 关系温度 0..100，前端可见
+    pressure: number; // 对话压力 0..100，前端可见
+    openness: number; // 开放程度 0..100，仅供导演与结算
   };
   flags: {
-    namedSpecificHurt: boolean;
-    ownedChoice: boolean;
-    concretePlan: boolean;
-    relationshipChosen: boolean;
+    understoodNeed: boolean;
+    proposedAction: boolean;
+    respectedChoice: boolean;
+    sincereCare: boolean;
   };
   activeEvent: StoryEvent | null;
   endingId: EndingId | null;
@@ -165,8 +166,8 @@ interface ActorPerformance {
     mouth: 'line' | 'smirk' | 'downturned' | 'parted' | 'small-smile';
   };
   action: {
-    pose: 'arms-crossed' | 'holding-handle' | 'turned-away' | 'leaning' | 'relaxed';
-    gesture: 'none' | 'points-door' | 'checks-phone' | 'releases-handle' | 'wipes-eye';
+    pose: ScenarioPose;
+    gesture: ScenarioGesture;
     stageDirection: string;
   };
   stateChanges: MetricDelta;
@@ -190,11 +191,13 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 ## 6. 确定性规则
 
 - 所有关系数值限制在 `0..100`。
-- 每回合信任变化限制在 `-18..16`，愤怒变化限制在 `-16..22`。
-- S 结局门槛：第 4 轮起，信任 ≥ 72、愤怒 ≤ 40，并出现充分的关系修复信号。
-- A 结局门槛：第 5 轮起，信任 ≥ 54、愤怒 ≤ 52、具体行动成立。
-- C 结局：信任 ≤ 10、愤怒 ≥ 90，或第 7 轮结束仍未满足更高结局。
+- 每回合关系温度变化限制在 `-18..16`，对话压力变化限制在 `-16..22`，开放程度变化限制在 `-12..16`。
+- 每关定义独立初始数值、S/A 最早成功轮次和温度/压力门槛。
+- S 需要理解需要、提出行动，并累计至少三类质量信号。
+- A 需要至少两类质量信号，并包含具体行动或尊重选择。
+- C 在关系温度 ≤ 8、对话压力 ≥ 94，或关卡轮次耗尽时锁定。
 - 导演可建议提前结束，reducer 需要同时验证硬门槛。
+- `GameStateSchema` 和 `PublicSessionSchema` 验证结局 ID 必须属于当前关卡。
 
 ## 7. API
 
@@ -202,8 +205,10 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 |---|---|---|
 | GET | `/api/health` | 进程、Provider 与时间状态 |
 | GET | `/api/capabilities` | 文本模型、TTS、语音输入提示 |
-| GET | `/api/scenario?playerGender=male\|female` | 获取对应玩家身份与对手的关卡简报 |
-| POST | `/api/sessions` | 传入 `playerGender` 创建新局并返回对应开场演出 |
+| GET | `/api/scenarios` | 获取八张关卡卡片的公开目录 |
+| GET | `/api/scenarios/:scenarioId?playerGender=male\|female` | 获取指定关卡与身份的简报 |
+| GET | `/api/scenario?playerGender=male\|female` | 旧客户端兼容，映射行李箱关 |
+| POST | `/api/sessions` | 传入 `{ scenarioId, playerGender }` 创建新局；缺少 `scenarioId` 时兼容行李箱关 |
 | GET | `/api/sessions/:id` | 恢复当前内存会话 |
 | POST | `/api/sessions/:id/turns` | 提交玩家台词并完成一回合 |
 | POST | `/api/speech` | 把角色台词转换为 AI 音频 |
@@ -213,6 +218,8 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 会话使用 UUID，正文保存在进程内存，默认 120 分钟后过期。生产阶段可将会话存储替换为带 TTL 的 Redis。
 
 用量日志采用 JSONL，只包含 UUID、Provider、模型、Agent、Token、缓存、延迟、重试、成功状态和成本估算，不包含 Prompt、台词或完整转录。默认写入 `var/usage-events.jsonl`；告警独立写入 `var/usage-alerts.jsonl`。服务启动时恢复最近 5,000 条技术事件和最近 50 条告警，使当日统计可跨进程重启。真实供应商返回的 Token 标记为 `provider_reported`，Mock 采用字符数近似并标记为 `estimated`。
+
+浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份。浏览器不保存会话 ID、对话正文、玩家输入或关系数值。
 
 ## 8. 模型与成本可行性
 
@@ -319,9 +326,10 @@ relationship-arena/
 
 ## 11. 分阶段开发计划
 
-### Phase 0：本次原型
+### Phase 0：八关版本
 
-- 完成单场景、两种玩家身份、两位对应对手、三个结局。
+- 完成八关目录、两种玩家身份、两位贯穿角色和每关三个结局。
+- 完成关卡筛选、本机完成记录、分身份最佳成绩与结局收藏。
 - 完成三 Agent 接口、Mock、OpenAI、DeepSeek Provider。
 - 完成文本输入、可选语音输入、AI TTS、浏览器语音回退。
 - 完成双角色动态立绘、状态 HUD、结算复盘和分享文本。

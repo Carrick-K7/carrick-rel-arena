@@ -81,6 +81,14 @@ figure {
   min-width: max-content;
 }
 
+.brand-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
 .brand__mark {
   display: grid;
   width: 38px;
@@ -119,6 +127,237 @@ figure {
 
 .brand--small b {
   font-size: 16px;
+}
+
+/* Level select */
+
+.level-screen {
+  width: min(1240px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 36px 44px;
+}
+
+.level-topbar {
+  border-bottom-color: var(--ink);
+}
+
+.level-intro {
+  display: grid;
+  max-width: 930px;
+  padding: 64px 0 48px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.48fr);
+  column-gap: 70px;
+}
+
+.level-intro .eyebrow {
+  grid-column: 1 / -1;
+}
+
+.level-intro h1 {
+  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-size: clamp(44px, 5vw, 68px);
+  font-weight: 500;
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+}
+
+.level-intro > p:last-child {
+  align-self: end;
+  padding-bottom: 7px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.level-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.filter-group > span {
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.filter-group > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.filter-group button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.filter-group button:hover {
+  color: var(--ink);
+  background: var(--line-soft);
+}
+
+.filter-group button.is-active {
+  border-color: #add8d3;
+  color: var(--accent-dark);
+  background: #e7f8f5;
+  font-weight: 700;
+}
+
+.scenario-grid {
+  display: grid;
+  gap: 1px;
+  margin-top: 32px;
+  border: 1px solid var(--line);
+  background: var(--line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scenario-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 250px;
+  padding: 27px 28px 23px;
+  align-content: start;
+  border: 0;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.scenario-card:hover {
+  z-index: 1;
+  background: #fff;
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.scenario-card:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.scenario-card__number {
+  position: absolute;
+  top: 23px;
+  right: 26px;
+  color: var(--line);
+  font-family: Georgia, serif;
+  font-size: 44px;
+  line-height: 1;
+}
+
+.scenario-card.is-completed .scenario-card__number {
+  color: #b9ded9;
+}
+
+.scenario-card__tags {
+  display: flex;
+  gap: 6px;
+  padding-right: 60px;
+}
+
+.scenario-card__tags i {
+  padding: 4px 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  color: var(--muted);
+  background: #f8fcfb;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.scenario-card > strong {
+  max-width: 470px;
+  margin-top: 22px;
+  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.scenario-card > p {
+  max-width: 500px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.scenario-card__record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.scenario-card__record b {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.scenario-card.is-completed .scenario-card__record b {
+  color: var(--trust);
+}
+
+.level-error {
+  margin-top: 18px;
+  color: var(--anger);
+  font-size: 14px;
+}
+
+.empty-levels {
+  padding: 70px 20px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+}
+
+.level-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 25px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.level-footer button {
+  padding: 8px 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Briefing */
@@ -330,6 +569,23 @@ figure {
   transition:
     background 160ms ease,
     transform 160ms ease;
+}
+
+.back-button {
+  min-height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.back-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
 }
 
 .start-button:hover {
@@ -622,11 +878,11 @@ figure {
   transition: width 650ms ease;
 }
 
-.gauge--trust .gauge__track span {
+.gauge--warmth .gauge__track span {
   background: var(--trust);
 }
 
-.gauge--anger .gauge__track span {
+.gauge--pressure .gauge__track span {
   background: var(--anger);
 }
 
@@ -1209,7 +1465,8 @@ figure {
 }
 
 .share-button,
-.replay-button {
+.replay-button,
+.levels-button {
   min-height: 48px;
   padding: 0 22px;
   border-radius: 4px;
@@ -1229,6 +1486,17 @@ figure {
   border: 1px solid var(--accent);
   color: #fff;
   background: var(--accent);
+}
+
+.levels-button {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: #fff;
+}
+
+.levels-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .replay-button:disabled {
@@ -1318,9 +1586,34 @@ figure {
 
   .briefing-screen,
   .game-screen,
-  .result-screen {
+  .result-screen,
+  .level-screen {
     padding-right: 20px;
     padding-left: 20px;
+  }
+
+  .level-intro {
+    display: block;
+    padding: 42px 0 32px;
+  }
+
+  .level-intro h1 {
+    font-size: clamp(40px, 11vw, 58px);
+  }
+
+  .level-intro > p:last-child {
+    margin-top: 20px;
+    padding: 0;
+  }
+
+  .level-filters {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+  }
+
+  .scenario-grid {
+    grid-template-columns: 1fr;
   }
 
   .brand-bar {
@@ -1357,6 +1650,10 @@ figure {
   }
 
   .start-button {
+    width: 100%;
+  }
+
+  .back-button {
     width: 100%;
   }
 
@@ -1458,6 +1755,24 @@ figure {
     font-size: 12px;
   }
 
+  .level-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scenario-card {
+    min-height: 235px;
+    padding: 24px 22px 20px;
+  }
+
+  .scenario-card__number {
+    right: 20px;
+  }
+
+  .scenario-card > strong {
+    font-size: 21px;
+  }
+
   .role-picker > div {
     grid-template-columns: 1fr;
   }
@@ -1506,7 +1821,8 @@ figure {
   }
 
   .share-button,
-  .replay-button {
+  .replay-button,
+  .levels-button {
     width: 100%;
   }
 }

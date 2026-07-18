@@ -7,31 +7,33 @@ import {
   type Gender,
   type GameState,
   type JudgeVerdict,
+  type ScenarioId,
 } from '../shared/contracts.js';
-import { ENDING_CATALOG } from './scenario.js';
+import {
+  getEndingDefinition,
+  getScenarioDefinition,
+} from './scenario.js';
 
 export function createInitialState(
   sessionId: string,
+  scenarioId: ScenarioId = 'suitcase-at-one',
   playerGender: Gender = 'male',
 ): GameState {
+  const definition = getScenarioDefinition(scenarioId);
   return GameStateSchema.parse({
     sessionId,
-    scenarioId: 'suitcase-at-one',
+    scenarioId,
     playerGender,
     opponentGender: playerGender === 'male' ? 'female' : 'male',
     phase: 'awaiting_player',
     round: 0,
-    maxRounds: 7,
-    metrics: {
-      trust: 32,
-      anger: 76,
-      vulnerability: 38,
-    },
+    maxRounds: definition.maxRounds,
+    metrics: definition.initialMetrics,
     flags: {
-      namedSpecificHurt: false,
-      ownedChoice: false,
-      concretePlan: false,
-      relationshipChosen: false,
+      understoodNeed: false,
+      proposedAction: false,
+      respectedChoice: false,
+      sincereCare: false,
     },
     activeEvent: null,
     endingId: null,
@@ -49,18 +51,18 @@ export function applyDirectorDecision(
   round: number,
 ): AppliedDirectorResult {
   const mergedDiscoveries = {
-    namedSpecificHurt:
-      current.flags.namedSpecificHurt ||
-      originalDecision.discoveries.namedSpecificHurt,
-    ownedChoice:
-      current.flags.ownedChoice ||
-      originalDecision.discoveries.ownedChoice,
-    concretePlan:
-      current.flags.concretePlan ||
-      originalDecision.discoveries.concretePlan,
-    relationshipChosen:
-      current.flags.relationshipChosen ||
-      originalDecision.discoveries.relationshipChosen,
+    understoodNeed:
+      current.flags.understoodNeed ||
+      originalDecision.discoveries.understoodNeed,
+    proposedAction:
+      current.flags.proposedAction ||
+      originalDecision.discoveries.proposedAction,
+    respectedChoice:
+      current.flags.respectedChoice ||
+      originalDecision.discoveries.respectedChoice,
+    sincereCare:
+      current.flags.sincereCare ||
+      originalDecision.discoveries.sincereCare,
   };
 
   const decision = DirectorDecisionSchema.parse({
@@ -72,18 +74,18 @@ export function applyDirectorDecision(
     phase: 'acting',
     round,
     metrics: {
-      trust: clamp(
-        current.metrics.trust + decision.delta.trust,
+      warmth: clamp(
+        current.metrics.warmth + decision.delta.warmth,
         0,
         100,
       ),
-      anger: clamp(
-        current.metrics.anger + decision.delta.anger,
+      pressure: clamp(
+        current.metrics.pressure + decision.delta.pressure,
         0,
         100,
       ),
-      vulnerability: clamp(
-        current.metrics.vulnerability + decision.delta.vulnerability,
+      openness: clamp(
+        current.metrics.openness + decision.delta.openness,
         0,
         100,
       ),
@@ -96,37 +98,41 @@ export function applyDirectorDecision(
 }
 
 export function selectEnding(state: GameState): EndingId | null {
+  const definition = getScenarioDefinition(state.scenarioId);
+  const thresholds = definition.thresholds;
   const relationshipCollapsed =
-    state.metrics.trust <= 10 || state.metrics.anger >= 90;
+    state.metrics.warmth <= 8 || state.metrics.pressure >= 94;
   if (relationshipCollapsed) {
-    return 'elevator-going-down';
+    return definition.endings.C.id;
   }
 
-  const strongRepair =
-    state.flags.namedSpecificHurt &&
-    state.flags.concretePlan &&
-    state.flags.relationshipChosen;
+  const signalCount = Object.values(state.flags).filter(Boolean).length;
+  const strongResponse =
+    state.flags.understoodNeed &&
+    state.flags.proposedAction &&
+    signalCount >= 3;
 
   if (
-    state.round >= 4 &&
-    state.metrics.trust >= 72 &&
-    state.metrics.anger <= 40 &&
-    strongRepair
+    state.round >= thresholds.sMinRound &&
+    state.metrics.warmth >= thresholds.sWarmth &&
+    state.metrics.pressure <= thresholds.sPressure &&
+    strongResponse
   ) {
-    return 'breakfast-stays-warm';
+    return definition.endings.S.id;
   }
 
   if (
-    state.round >= 5 &&
-    state.metrics.trust >= 54 &&
-    state.metrics.anger <= 52 &&
-    state.flags.concretePlan
+    state.round >= thresholds.aMinRound &&
+    state.metrics.warmth >= thresholds.aWarmth &&
+    state.metrics.pressure <= thresholds.aPressure &&
+    signalCount >= 2 &&
+    (state.flags.proposedAction || state.flags.respectedChoice)
   ) {
-    return 'suitcase-by-the-door';
+    return definition.endings.A.id;
   }
 
   if (state.round >= state.maxRounds) {
-    return 'elevator-going-down';
+    return definition.endings.C.id;
   }
 
   return null;
@@ -134,9 +140,10 @@ export function selectEnding(state: GameState): EndingId | null {
 
 export function lockVerdict(
   verdict: JudgeVerdict,
+  scenarioId: ScenarioId,
   endingId: EndingId,
 ): JudgeVerdict {
-  const locked = ENDING_CATALOG[endingId];
+  const locked = getEndingDefinition(scenarioId, endingId);
   return JudgeVerdictSchema.parse({
     ...verdict,
     endingId,

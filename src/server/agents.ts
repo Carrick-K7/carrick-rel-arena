@@ -61,7 +61,7 @@ export class GameAgents {
       agent: 'actor',
       schemaName: 'actor_performance',
       schema: ActorPerformanceSchema,
-      system: createActorSystemPrompt(context.briefing.character),
+      system: createActorSystemPrompt(context.briefing),
       input: {
         character: context.briefing.character,
         directorBrief: context.director.actorBrief,

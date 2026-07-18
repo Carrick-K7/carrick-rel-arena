@@ -222,7 +222,7 @@ function request() {
       line: 'test',
     },
     context: {
-      briefing: createBriefing('male'),
+      briefing: createBriefing('suitcase-at-one', 'male'),
       state: createInitialState(SESSION_ID),
       transcript: [],
       playerLine: '测试',

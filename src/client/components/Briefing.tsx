@@ -12,6 +12,7 @@ interface BriefingProps {
   playerGender: Gender;
   starting: boolean;
   onPlayerGenderChange: (gender: Gender) => void;
+  onBack: () => void;
   onStart: () => void;
 }
 
@@ -27,12 +28,12 @@ const previewPerformance: ActorPerformance = {
   action: {
     pose: 'holding-handle',
     gesture: 'checks-phone',
-    stageDirection: '对方已经把车叫好了。',
+    stageDirection: '对方正在等你先开口。',
   },
   stateChanges: {
-    trust: 0,
-    anger: 0,
-    vulnerability: 0,
+    warmth: 0,
+    pressure: 0,
+    openness: 0,
   },
 };
 
@@ -42,22 +43,21 @@ export function Briefing({
   playerGender,
   starting,
   onPlayerGenderChange,
+  onBack,
   onStart,
 }: BriefingProps) {
   return (
     <main className="briefing-screen">
       <header className="brand-bar">
-        <a
-          className="brand"
-          href={import.meta.env.BASE_URL}
-          aria-label="关系修罗场首页"
+        <button
+          className="brand brand-button"
+          type="button"
+          onClick={onBack}
+          aria-label="返回关系修炼关卡"
         >
           <span className="brand__mark">修</span>
-          <span>
-            <b>关系修罗场</b>
-            <small>Relationship Arena</small>
-          </span>
-        </a>
+          <span><b>关系修炼</b></span>
+        </button>
         <div className="provider-badge" data-testid="provider-badge">
           <span className="provider-badge__dot" />
           {providerLabel(capabilities)}
@@ -66,7 +66,10 @@ export function Briefing({
 
       <section className="briefing-hero">
         <div className="briefing-copy">
-          <p className="eyebrow">第一关 · 亲密关系 / 失约</p>
+          <p className="eyebrow">
+            第 {briefing.number} 关 · {typeLabel(briefing.type)} ·{' '}
+            {briefing.difficulty}
+          </p>
           <h1>{briefing.title}</h1>
 
           <div className="briefing-sections">
@@ -79,7 +82,7 @@ export function Briefing({
             <article className="briefing-section briefing-section--goal">
               <span>挑战目标</span>
               <h2>{briefing.goal}</h2>
-              <p>你可以自由表达。每一句都会改变信任、愤怒和结局。</p>
+              <p>你可以自由表达。每一句都会改变关系温度、对话压力和结局。</p>
             </article>
 
             <article className="briefing-section briefing-section--character">
@@ -131,6 +134,15 @@ export function Briefing({
 
           <div className="briefing-actions">
             <button
+              className="back-button"
+              type="button"
+              onClick={onBack}
+              disabled={starting}
+              data-testid="back-to-levels"
+            >
+              返回关卡
+            </button>
+            <button
               className="start-button"
               type="button"
               onClick={onStart}
@@ -139,7 +151,10 @@ export function Briefing({
             >
               {starting ? '正在进入…' : '开始挑战'}
             </button>
-            <span>7 轮 · 约 8 分钟 · 自由输入</span>
+            <span>
+              {briefing.maxRounds} 轮 · 约 {briefing.maxRounds + 1} 分钟 ·
+              自由输入
+            </span>
           </div>
         </div>
 
@@ -149,7 +164,7 @@ export function Briefing({
             character={briefing.character}
           />
           <blockquote>
-            “你有七句话。挑几句真的。”
+            “{briefing.openingLine}”
             <span>— {briefing.character.name}</span>
           </blockquote>
         </div>
@@ -161,6 +176,14 @@ export function Briefing({
 function providerLabel(capabilities: Capabilities | null): string {
   if (!capabilities) return '连接中';
   if (capabilities.textProvider === 'mock') return '本地模式';
-  if (capabilities.textProvider === 'openai') return 'OpenAI 在线';
-  return 'DeepSeek 在线';
+  return '在线角色';
+}
+
+function typeLabel(type: ScenarioBriefing['type']): string {
+  return {
+    invitation: '邀约',
+    comfort: '安慰',
+    alignment: '磨合',
+    repair: '修复',
+  }[type];
 }

@@ -1,7 +1,7 @@
 interface GaugeProps {
   label: string;
   value: number;
-  kind: 'trust' | 'anger';
+  kind: 'warmth' | 'pressure';
 }
 
 export function Gauge({ label, value, kind }: GaugeProps) {

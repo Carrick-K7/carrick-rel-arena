@@ -1,5 +1,5 @@
 [Unit]
-Description=Relationship Arena AI game
+Description=关系修炼 AI 互动游戏
 After=network-online.target
 Wants=network-online.target
 

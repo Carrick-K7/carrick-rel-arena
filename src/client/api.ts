@@ -3,6 +3,8 @@ import type {
   Gender,
   PublicSession,
   ScenarioBriefing,
+  ScenarioId,
+  ScenarioSummary,
   Tone,
 } from '../shared/contracts.js';
 
@@ -30,16 +32,25 @@ export async function getCapabilities(): Promise<Capabilities> {
   return request<Capabilities>(`${API_BASE}/capabilities`);
 }
 
+export async function getScenarios(): Promise<ScenarioSummary[]> {
+  const payload = await request<{ scenarios: ScenarioSummary[] }>(
+    `${API_BASE}/scenarios`,
+  );
+  return payload.scenarios;
+}
+
 export async function getBriefing(
+  scenarioId: ScenarioId,
   playerGender: Gender,
 ): Promise<ScenarioBriefing> {
   const payload = await request<{ briefing: ScenarioBriefing }>(
-    `${API_BASE}/scenario?playerGender=${playerGender}`,
+    `${API_BASE}/scenarios/${encodeURIComponent(scenarioId)}?playerGender=${playerGender}`,
   );
   return payload.briefing;
 }
 
 export async function createSession(
+  scenarioId: ScenarioId,
   playerGender: Gender,
 ): Promise<PublicSession> {
   const payload = await request<{ session: PublicSession }>(
@@ -49,7 +60,7 @@ export async function createSession(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ playerGender }),
+      body: JSON.stringify({ scenarioId, playerGender }),
     },
   );
   return payload.session;

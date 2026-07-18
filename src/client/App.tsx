@@ -4,17 +4,28 @@ import type {
   Gender,
   PublicSession,
   ScenarioBriefing,
+  ScenarioId,
+  ScenarioSummary,
 } from '../shared/contracts.js';
 import {
   ApiError,
   createSession,
   getBriefing,
   getCapabilities,
+  getScenarios,
   playTurn,
 } from './api.js';
 import { Briefing } from './components/Briefing.js';
 import { GameStage } from './components/GameStage.js';
 import { ResultScreen } from './components/ResultScreen.js';
+import { ScenarioSelect } from './components/ScenarioSelect.js';
+import {
+  clearProgress,
+  loadProgress,
+  recordResult,
+  saveProgress,
+  withPreferredGender,
+} from './progress.js';
 import {
   speakLine,
   startSpeechInput,
@@ -22,17 +33,16 @@ import {
   supportsSpeechInput,
 } from './speech.js';
 
-type Screen = 'briefing' | 'playing' | 'result';
+type Screen = 'select' | 'briefing' | 'playing' | 'result';
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>('briefing');
+  const [screen, setScreen] = useState<Screen>('select');
+  const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [playerGender, setPlayerGender] = useState<Gender>('male');
-  const [briefings, setBriefings] = useState<Record<
-    Gender,
-    ScenarioBriefing
-  > | null>(null);
+  const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
+  const [progress, setProgress] = useState(loadProgress);
   const [draft, setDraft] = useState('');
   const [pendingLine, setPendingLine] = useState<string | null>(null);
   const [directorSummary, setDirectorSummary] = useState<string | null>(null);
@@ -46,26 +56,15 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
-      getBriefing('male'),
-      getBriefing('female'),
-      getCapabilities(),
-    ])
-      .then(([maleBriefing, femaleBriefing, nextCapabilities]) => {
+    Promise.all([getScenarios(), getCapabilities()])
+      .then(([nextScenarios, nextCapabilities]) => {
         if (!active) return;
-        setBriefings({
-          male: maleBriefing,
-          female: femaleBriefing,
-        });
+        setScenarios(nextScenarios);
         setCapabilities(nextCapabilities);
       })
       .catch((loadError: unknown) => {
         if (!active) return;
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : '关卡简报加载失败。',
-        );
+        setError(errorMessage(loadError));
       });
     return () => {
       active = false;
@@ -74,27 +73,60 @@ export function App() {
     };
   }, []);
 
-  const briefing = briefings?.[playerGender] ?? null;
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [screen]);
+
+  async function selectScenario(scenarioId: ScenarioId) {
+    setBusy(true);
+    setError(null);
+    stopSpeaking();
+    try {
+      const gender = progress.preferredGender;
+      const nextBriefing = await getBriefing(scenarioId, gender);
+      setPlayerGender(gender);
+      setBriefing(nextBriefing);
+      setSession(null);
+      setScreen('briefing');
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePlayerGender(gender: Gender) {
+    if (!briefing || busy) return;
+    setBusy(true);
+    setError(null);
+    setPlayerGender(gender);
+    setProgress((current) => {
+      const next = withPreferredGender(current, gender);
+      saveProgress(next);
+      return next;
+    });
+    try {
+      setBriefing(await getBriefing(briefing.id, gender));
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function beginGame() {
+    if (!briefing) return;
     setBusy(true);
     setError(null);
     setDirectorSummary(null);
     stopSpeaking();
     try {
-      const nextSession = await createSession(playerGender);
+      const nextSession = await createSession(briefing.id, playerGender);
       setSession(nextSession);
       setScreen('playing');
       setDraft('');
       setPendingLine(null);
-      if (voiceEnabled) {
-        void speakLine(
-          nextSession.lastPerformance.line,
-          nextSession.lastPerformance.tone,
-          nextSession.briefing.character.gender,
-          nextSession.state.sessionId,
-        );
-      }
+      if (voiceEnabled) speakSessionLine(nextSession);
     } catch (startError) {
       setError(errorMessage(startError));
     } finally {
@@ -118,15 +150,23 @@ export function App() {
       setSession(result.session);
       setDirectorSummary(result.directorSummary);
       setPendingLine(null);
-      if (voiceEnabled) {
-        void speakLine(
-          result.session.lastPerformance.line,
-          result.session.lastPerformance.tone,
-          result.session.briefing.character.gender,
-          result.session.state.sessionId,
-        );
-      }
-      if (result.session.state.phase === 'result') {
+      if (voiceEnabled) speakSessionLine(result.session);
+      if (
+        result.session.state.phase === 'result' &&
+        result.session.verdict
+      ) {
+        const verdict = result.session.verdict;
+        setProgress((current) => {
+          const next = recordResult(current, {
+            scenarioId: result.session.state.scenarioId,
+            gender: result.session.state.playerGender,
+            score: verdict.score,
+            tier: verdict.tier,
+            endingId: verdict.endingId,
+          });
+          saveProgress(next);
+          return next;
+        });
         setScreen('result');
       }
     } catch (turnError) {
@@ -145,12 +185,7 @@ export function App() {
     if (!next) {
       stopSpeaking();
     } else if (session) {
-      void speakLine(
-        session.lastPerformance.line,
-        session.lastPerformance.tone,
-        session.briefing.character.gender,
-        session.state.sessionId,
-      );
+      speakSessionLine(session);
     }
   }
 
@@ -171,11 +206,29 @@ export function App() {
     );
   }
 
-  if (!briefing) {
+  function returnToLevels() {
+    stopSpeaking();
+    stopRecognitionRef.current?.();
+    stopRecognitionRef.current = null;
+    setRecording(false);
+    setSession(null);
+    setBriefing(null);
+    setDraft('');
+    setPendingLine(null);
+    setDirectorSummary(null);
+    setError(null);
+    setScreen('select');
+  }
+
+  function resetProgress() {
+    setProgress(clearProgress());
+  }
+
+  if (!scenarios) {
     return (
       <main className="loading-screen">
         <span className="loading-mark">修</span>
-        <p>{error ?? '正在布置凌晨一点的玄关…'}</p>
+        <p>{error ?? '正在整理八关目录…'}</p>
         {error && (
           <button type="button" onClick={() => window.location.reload()}>
             重新连接
@@ -191,6 +244,7 @@ export function App() {
         session={session}
         replaying={busy}
         onReplay={beginGame}
+        onBackToLevels={returnToLevels}
       />
     );
   }
@@ -212,26 +266,51 @@ export function App() {
         onSubmit={submitLine}
         onToggleVoice={toggleVoice}
         onToggleRecording={toggleRecording}
+        onExit={returnToLevels}
       />
     );
   }
 
+  if (screen === 'briefing' && briefing) {
+    return (
+      <>
+        <Briefing
+          briefing={briefing}
+          capabilities={capabilities}
+          playerGender={playerGender}
+          starting={busy}
+          onPlayerGenderChange={changePlayerGender}
+          onBack={returnToLevels}
+          onStart={beginGame}
+        />
+        {error && (
+          <p className="briefing-error" role="alert">
+            {error}
+          </p>
+        )}
+      </>
+    );
+  }
+
   return (
-    <>
-      <Briefing
-        briefing={briefing}
-        capabilities={capabilities}
-        playerGender={playerGender}
-        starting={busy}
-        onPlayerGenderChange={setPlayerGender}
-        onStart={beginGame}
-      />
-      {error && (
-        <p className="briefing-error" role="alert">
-          {error}
-        </p>
-      )}
-    </>
+    <ScenarioSelect
+      scenarios={scenarios}
+      progress={progress}
+      capabilities={capabilities}
+      busy={busy}
+      error={error}
+      onSelect={selectScenario}
+      onClearProgress={resetProgress}
+    />
+  );
+}
+
+function speakSessionLine(session: PublicSession) {
+  void speakLine(
+    session.lastPerformance.line,
+    session.lastPerformance.tone,
+    session.briefing.character.gender,
+    session.state.sessionId,
   );
 }
 
@@ -243,7 +322,7 @@ function errorMessage(error: unknown): string {
 
 function readVoicePreference(): boolean {
   try {
-    return localStorage.getItem('relationship-arena:voice') !== 'off';
+    return localStorage.getItem('relationship-training:voice') !== 'off';
   } catch {
     return true;
   }
@@ -252,7 +331,7 @@ function readVoicePreference(): boolean {
 function writeVoicePreference(enabled: boolean) {
   try {
     localStorage.setItem(
-      'relationship-arena:voice',
+      'relationship-training:voice',
       enabled ? 'on' : 'off',
     );
   } catch {

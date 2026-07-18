@@ -21,6 +21,7 @@ interface GameStageProps {
   onSubmit: () => void;
   onToggleVoice: () => void;
   onToggleRecording: () => void;
+  onExit: () => void;
 }
 
 export function GameStage({
@@ -38,6 +39,7 @@ export function GameStage({
   onSubmit,
   onToggleVoice,
   onToggleRecording,
+  onExit,
 }: GameStageProps) {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const { state, briefing, lastPerformance } = session;
@@ -51,17 +53,15 @@ export function GameStage({
   return (
     <main className="game-screen">
       <header className="game-topbar">
-        <a
-          className="brand brand--small"
-          href={import.meta.env.BASE_URL}
-          aria-label="关系修罗场"
+        <button
+          className="brand brand--small brand-button"
+          type="button"
+          onClick={onExit}
+          aria-label="返回关系修炼关卡"
         >
           <span className="brand__mark">修</span>
-          <span>
-            <b>关系修罗场</b>
-            <small>Relationship Arena</small>
-          </span>
-        </a>
+          <span><b>关系修炼</b></span>
+        </button>
         <div className="scene-title">
           <span>{briefing.timeAndPlace}</span>
           <strong>{briefing.title}</strong>
@@ -91,14 +91,14 @@ export function GameStage({
         <section className="conversation-stage">
           <div className="status-strip">
             <Gauge
-              label="信任"
-              value={state.metrics.trust}
-              kind="trust"
+              label="关系温度"
+              value={state.metrics.warmth}
+              kind="warmth"
             />
             <Gauge
-              label="愤怒"
-              value={state.metrics.anger}
-              kind="anger"
+              label="对话压力"
+              value={state.metrics.pressure}
+              kind="pressure"
             />
           </div>
 
@@ -113,12 +113,12 @@ export function GameStage({
             <h1 data-testid="latest-line">“{lastPerformance.line}”</h1>
             <div className="delta-row">
               <Delta
-                label="信任"
-                value={lastPerformance.stateChanges.trust}
+                label="温度"
+                value={lastPerformance.stateChanges.warmth}
               />
               <Delta
-                label="愤怒"
-                value={lastPerformance.stateChanges.anger}
+                label="压力"
+                value={lastPerformance.stateChanges.pressure}
                 inverse
               />
             </div>
@@ -174,7 +174,7 @@ export function GameStage({
           <p className="director-note" aria-live="polite">
             <span>局势</span>
             {directorSummary ??
-              '对方在等你说出今晚真正落在自己身上的东西。'}
+              '对方在等你回应此刻真正需要被看见的部分。'}
           </p>
         </section>
       </section>
@@ -239,7 +239,7 @@ export function GameStage({
           </p>
         )}
         <p className="ai-disclosure">
-          AI 角色与 AI 合成语音 · 单局关系状态
+          AI 角色与 AI 合成语音 · 本关状态不带入下一关
           <span data-testid="usage-meter">{usageLabel(session)}</span>
         </p>
       </footer>

@@ -1,116 +1,174 @@
-import {
-  expect,
-  test,
-  type Page,
-} from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-const strongLines = [
-  '我把你一个人晾在妈妈的生日饭桌上。你还得独自替我圆场，这个难堪是我选择逃开造成的。',
-  '我听见你在问我是否认真。你在饭桌上等我出现，我却让你独自撑着。我的答案是：我选择这段关系，也选择站在你身边。你现在最需要我先听哪一件事？',
-  '那张空椅子让你在妈妈面前难堪。明天十点我们一起去见她，我来订位置、提前确认行程；我们当面把这顿饭补上，并把它写进日历。',
-  '今晚我先把手机放下，听你把饭桌上的难堪说完。明早我们一起核对安排，我会亲口回答她那句“你是认真的吗”。',
-];
+const genericStrongLine =
+  '我知道你现在很难受，也在意你的真实需要。明天我们一起把具体安排定下来，你来选，也可以拒绝；我会陪你。';
+
+const repairStrongLine =
+  '我知道把你信任我才说的私事公开，是我越界，也让你在大家面前难堪。我现在先在群里叫停、要求删除并道歉；是否回去由你决定，我会陪你一起处理。';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    window.localStorage.setItem('relationship-arena:voice', 'off');
+    if (!window.sessionStorage.getItem('relationship-training:test-init')) {
+      window.localStorage.clear();
+      window.sessionStorage.setItem(
+        'relationship-training:test-init',
+        'done',
+      );
+    }
+    window.localStorage.setItem('relationship-training:voice', 'off');
   });
 });
 
-test('plays the authored high-quality path into the S ending', async ({
+test('shows all eight open scenarios and filters by type and progress', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    '把关系练成',
+  );
+  await expect(page.getByText('关系修炼', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Relationship Arena')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(8);
+
+  await page.getByTestId('type-filter-invitation').click();
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(2);
+  await expect(page.getByText('周五六点：约对方逛周末市集')).toBeVisible();
+  await expect(page.getByText('大雨突袭：把泡汤的约会重新约好')).toBeVisible();
+
+  await page.getByTestId('type-filter-comfort').click();
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(2);
+
+  await page.getByTestId('type-filter-all').click();
+  await page.getByTestId('progress-filter-completed').click();
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(0);
+  await expect(page.getByText('这个筛选下还没有关卡记录。')).toBeVisible();
+});
+
+test('enters and leaves a briefing and supports both player identities', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByTestId('scenario-card-rejected-proposal').click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    '提案被否',
+  );
+  await expect(page.getByText('黎岚，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="黎岚"]')).toBeVisible();
+
+  await page.getByTestId('choose-female').click();
+  await expect(page.getByText('周叙，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
+
+  await page.getByTestId('back-to-levels').click();
+  await expect(page.getByTestId('scenario-card-rejected-proposal')).toBeVisible();
+});
+
+test('completes an invitation, keeps progress after refresh, and stores no dialogue', async ({
   page,
 }) => {
   test.setTimeout(90_000);
   await page.goto('./');
-  const provider = await readProvider(page);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    '凌晨一点',
-  );
-  await expect(page.getByTestId('provider-badge')).toContainText(
-    {
-      mock: '本地模式',
-      openai: 'OpenAI 在线',
-      deepseek: 'DeepSeek 在线',
-    }[provider],
-  );
-
+  await page.getByTestId('scenario-card-weekend-market').click();
   await page.getByTestId('start-game').click();
-  await expect(page.getByTestId('dialogue-input')).toBeVisible();
-  await expect(page.getByTestId('latest-line')).toContainText('七句话');
+  await playUntilResult(page, genericStrongLine, 5);
 
-  for (let round = 1; round <= strongLines.length; round += 1) {
-    await page.getByTestId('dialogue-input').fill(
-      strongLines[round - 1],
-    );
-    await page.getByTestId('send-line').click();
-    if (round < strongLines.length) {
-      await expect(page.getByTestId('round-counter')).toContainText(
-        String(7 - round),
-        {
-          timeout: 30_000,
-        },
-      );
-      await expect(page.getByTestId('dialogue-input')).toBeEnabled({
-        timeout: 30_000,
-      });
-      await expect(page.getByTestId('usage-meter')).toContainText(
-        `模型 ${round * 2} 次`,
-      );
-    }
-  }
-
-  await expect(page.getByTestId('result-screen')).toBeVisible({
-    timeout: 30_000,
-  });
-  await expect(page.getByTestId('result-screen')).toContainText('早餐还热');
-  if (provider === 'mock') {
-    await expect(page.getByTestId('result-screen')).toContainText(
-      '人形关系补丁',
-    );
-  }
-  await expect(page.getByTestId('result-usage')).toContainText(
-    '本局模型 9 次',
+  await expect(page.getByTestId('result-screen')).toContainText('周末有约');
+  await expect(page.getByTestId('result-screen')).toContainText('S');
+  await page.getByTestId('back-to-levels').click();
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '已完成',
+  );
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '男 S',
   );
 
-  const usage = await page.request.get('/api/admin/usage');
-  expect(usage.ok()).toBe(true);
-  const usageJson = (await usage.json()) as {
-    totals: { calls: number; totalTokens: number };
-  };
-  expect(usageJson.totals.calls).toBeGreaterThanOrEqual(9);
-  expect(usageJson.totals.totalTokens).toBeGreaterThan(0);
+  const stored = await page.evaluate(() =>
+    window.localStorage.getItem('relationship-training:progress:v1'),
+  );
+  expect(stored).not.toContain(genericStrongLine);
+  expect(stored).not.toContain('sessionId');
+  expect(stored).not.toContain('transcript');
 
-  const metrics = await page.request.get('/api/admin/metrics');
-  expect(metrics.ok()).toBe(true);
-  await expect(metrics.text()).resolves.toContain(
-    'relationship_arena_model_calls_total',
+  await page.reload();
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '已完成',
+  );
+  await page.getByTestId('progress-filter-completed').click();
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(1);
+});
+
+test('plays a repair scenario to its authored S ending', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('./');
+  await page.getByTestId('scenario-card-party-joke').click();
+  await page.getByTestId('choose-female').click();
+  await page.getByTestId('start-game').click();
+  await playUntilResult(page, repairStrongLine, 6);
+
+  await expect(page.getByTestId('result-screen')).toContainText('并肩回场');
+  await expect(page.getByTestId('result-screen')).toContainText('关系实干家');
+  await expect(page.getByTestId('result-usage')).toContainText('本局模型');
+});
+
+test('keeps legacy suitcase APIs compatible', async ({ page }) => {
+  await page.goto('./');
+  const scenario = await page.request.get('/api/scenario?playerGender=female');
+  expect(scenario.ok()).toBe(true);
+  expect((await scenario.json()).briefing.id).toBe('suitcase-at-one');
+
+  const session = await page.request.post('/api/sessions', {
+    data: { playerGender: 'male' },
+  });
+  expect(session.status()).toBe(201);
+  expect((await session.json()).session.state.scenarioId).toBe(
+    'suitcase-at-one',
   );
 });
 
-test('keeps one clear goal and allows direct apologies', async ({
+test('clears local progress after confirmation', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'relationship-training:progress:v1',
+      JSON.stringify({
+        version: 1,
+        preferredGender: 'male',
+        scenarios: {
+          'weekend-market': {
+            completed: true,
+            lastPlayedAt: '2026-07-18T08:00:00.000Z',
+            genders: {
+              male: {
+                plays: 1,
+                bestScore: 90,
+                bestTier: 'S',
+                endings: ['weekend-has-plans'],
+                lastPlayedAt: '2026-07-18T08:00:00.000Z',
+              },
+            },
+          },
+        },
+      }),
+    );
+  });
+  await page.goto('./');
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '已完成',
+  );
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '清除本机进度' }).click();
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '未完成',
+  );
+});
+
+test('keeps selection and gameplay usable at a mobile viewport', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
-  await page.goto('./');
-  await expect(page.getByText('挑战目标', { exact: true })).toBeVisible();
-  await expect(page.getByText('隐藏目标', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('特殊限制', { exact: true })).toHaveCount(0);
-  await page.getByTestId('start-game').click();
-
-  await page.getByTestId('dialogue-input').fill(
-    '对不起，我来晚了。我想先听你把今晚发生的事说完。',
-  );
-  await page.getByTestId('send-line').click();
-  await expect(page.getByTestId('round-counter')).toContainText('6', {
-    timeout: 30_000,
-  });
-  await expect(page.getByTestId('dialogue-input')).toBeEnabled();
-  await expect(page.getByTestId('result-screen')).toHaveCount(0);
-});
-
-test('keeps the game usable at a mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
+  await expect(page.getByTestId('scenario-card-weekend-market')).toBeVisible();
+  await page.getByTestId('scenario-card-rain-check').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 
@@ -120,37 +178,35 @@ test('keeps the game usable at a mobile viewport', async ({ page }) => {
   expect(horizontalOverflow).toBe(false);
 });
 
-test('switches to the male opponent when the player chooses the woman role', async ({
-  page,
-}) => {
-  await page.goto('./');
-  await expect(page.getByText('黎岚，25 岁')).toBeVisible();
-  await expect(
-    page.getByText(/产品经理 · 职场第 3 年/).first(),
-  ).toBeVisible();
-  await expect(page.getByTestId('choose-male')).toContainText('程序员');
-  await expect(page.locator('img[alt^="黎岚"]')).toBeVisible();
-
-  await page.getByTestId('choose-female').click();
-  await expect(page.getByText('周叙，25 岁')).toBeVisible();
-  await expect(page.getByText(/程序员 · 职场第 3 年/).first()).toBeVisible();
-  await expect(page.getByTestId('choose-female')).toContainText('产品经理');
-  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
-
-  await page.getByTestId('start-game').click();
-  await expect(page.getByTestId('latest-line')).toContainText('七句话');
-  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
-  await expect(page.getByText('周叙', { exact: true }).first()).toBeVisible();
-});
-
-async function readProvider(
+async function playUntilResult(
   page: Page,
-): Promise<'mock' | 'openai' | 'deepseek'> {
-  const response = await page.request.get(
-    new URL('api/capabilities', page.url()).pathname,
-  );
-  const payload = (await response.json()) as {
-    textProvider: 'mock' | 'openai' | 'deepseek';
-  };
-  return payload.textProvider;
+  line: string,
+  maxRounds: number,
+) {
+  for (let round = 0; round < maxRounds; round += 1) {
+    const previousCounter =
+      (await page.getByTestId('round-counter').textContent()) ?? '';
+    await page.getByTestId('dialogue-input').fill(line);
+    await page.getByTestId('send-line').click();
+    await page.waitForFunction(
+      ({ previous }) => {
+        const result = document.querySelector(
+          '[data-testid="result-screen"]',
+        );
+        const counter = document.querySelector(
+          '[data-testid="round-counter"]',
+        );
+        return Boolean(result) || counter?.textContent !== previous;
+      },
+      { previous: previousCounter },
+      { timeout: 30_000 },
+    );
+    if (await page.getByTestId('result-screen').count()) return;
+    await expect(page.getByTestId('dialogue-input')).toBeEnabled({
+      timeout: 30_000,
+    });
+  }
+  await expect(page.getByTestId('result-screen')).toBeVisible({
+    timeout: 30_000,
+  });
 }

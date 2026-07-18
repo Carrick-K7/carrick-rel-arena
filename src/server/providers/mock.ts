@@ -1,12 +1,17 @@
 import type {
   ActorPerformance,
   DirectorDecision,
+  EvaluationSignals,
   JudgeVerdict,
   MetricDelta,
-  StateDiscoveries,
   TranscriptEntry,
 } from '../../shared/contracts.js';
-import { createTurningPointEvent } from '../scenario.js';
+import {
+  createTurningPointEvent,
+  getEndingDefinition,
+  getScenarioDefinition,
+  type ScenarioDefinition,
+} from '../scenario.js';
 import type {
   ActorContext,
   AiProvider,
@@ -15,25 +20,24 @@ import type {
   StructuredCompletionRequest,
 } from './types.js';
 
-const HURT_PATTERN =
-  /妈妈|母亲|家人|饭桌|生日|圆场|一个人|独自|难堪|丢脸|等了|被晾|认真吗/;
-const OWNERSHIP_PATTERN =
-  /我(?:选择|逃|躲|失联|没去|爽约|把你|让你|害怕|瞒|关机|消失)|责任在我|这是我的选择/;
-const PLAN_PATTERN =
-  /明天|早上|现在|几点|一起|去见|我来联系|我来安排|订位|补上|当面|日历|行程|陪你/;
-const RELATIONSHIP_PATTERN =
-  /我们|这段关系|选择你|你很重要|认真|站在你身边|共同|一起面对/;
-const QUESTION_PATTERN = /你(?:想|需要|愿意|希望)|告诉我|我想听/;
+const UNDERSTANDING_PATTERN =
+  /我(?:知道|明白|听见|看见)|难受|失望|委屈|舍不得|疲惫|累|难堪|越界|被否|被笑|不想|需要|期待|在意的是/;
+const ACTION_PATTERN =
+  /现在|今晚|明天|早上|上午|下午|周六|周日|下周|几点|十分钟|一起|我来|先去|再去|写进|安排|确认|删除|道歉|看房|吃点|留下/;
+const RESPECT_PATTERN =
+  /你来选|由你|如果你愿意|不逼|不勉强|可以拒绝|可以改|按你|先听你|你决定|尊重|不替你|选择权/;
+const CARE_PATTERN =
+  /在意你|你很重要|陪你|想和你|不想你一个人|认真|我会在|站在你|和你一起|我留下|我想听/;
+const QUESTION_PATTERN = /你(?:想|需要|愿意|希望)|告诉我|我想听|你来选/;
 const DEFENSIVE_PATTERN =
-  /但是|可是|可我|因为|手机没电|临时加班|太忙|也没办法|你也|我只是/;
+  /但是|可是|可我|因为|手机没电|临时加班|太忙|也没办法|你也|我只是|本来以为/;
 const DISMISSIVE_PATTERN =
-  /至于吗|小题大做|别闹|冷静点|想太多|随便你|爱走就走|别作|矫情|不就是/;
-const VULNERABLE_PATTERN = /被裁|失业|辞退|害怕|怕你|不敢告诉|崩溃|慌了/;
-const HUMOR_PATTERN = /早餐|煎蛋|豆浆|咖啡|行李箱|车费/;
+  /至于吗|小题大做|别闹|冷静点|想太多|随便你|爱走就走|别作|矫情|不就是|天气而已|一个提案而已/;
+const VULNERABLE_PATTERN = /我也怕|我害怕|我慌|我不知道怎么|我不敢|我后悔/;
 
 export class MockAiProvider implements AiProvider {
   readonly kind = 'mock' as const;
-  readonly model = 'deterministic-v1';
+  readonly model = 'deterministic-eight-scenarios-v1';
 
   async generate<T>(request: StructuredCompletionRequest<T>) {
     const startedAt = Date.now();
@@ -84,77 +88,65 @@ function estimateTokens(value: string): number {
 export function mockDirector(context: DirectorContext): DirectorDecision {
   const text = context.playerLine;
   const state = context.state;
-  const namedSpecificHurt = HURT_PATTERN.test(text);
-  const ownedChoice = OWNERSHIP_PATTERN.test(text);
-  const concretePlan = PLAN_PATTERN.test(text);
-  const relationshipChosen = RELATIONSHIP_PATTERN.test(text);
-  const asksHer = QUESTION_PATTERN.test(text);
+  const definition = getScenarioDefinition(context.briefing.id);
+  const signals = evaluateSignals(text, definition);
+  const asksCharacter = QUESTION_PATTERN.test(text);
   const defensive = DEFENSIVE_PATTERN.test(text);
   const dismissive = DISMISSIVE_PATTERN.test(text);
   const vulnerable = VULNERABLE_PATTERN.test(text);
-  const usesHumor = HUMOR_PATTERN.test(text);
 
-  let trust = -1;
-  let anger = 2;
-  let vulnerability = 0;
+  let warmth = -1;
+  let pressure = 2;
+  let openness = 0;
 
-  if (namedSpecificHurt) {
-    trust += 9;
-    anger -= 7;
-    vulnerability += 5;
+  if (signals.understoodNeed) {
+    warmth += 7;
+    pressure -= 6;
+    openness += 5;
   }
-  if (ownedChoice) {
-    trust += 7;
-    anger -= 5;
-    vulnerability += 4;
+  if (signals.proposedAction) {
+    warmth += 6;
+    pressure -= 4;
+    openness += 3;
   }
-  if (concretePlan) {
-    trust += 8;
-    anger -= 5;
-    vulnerability += 3;
+  if (signals.respectedChoice) {
+    warmth += 4;
+    pressure -= 3;
+    openness += 3;
   }
-  if (relationshipChosen) {
-    trust += 5;
-    anger -= 3;
+  if (signals.sincereCare) {
+    warmth += 4;
+    pressure -= 3;
+    openness += 4;
   }
-  if (asksHer) {
-    trust += 3;
-    anger -= 2;
+  if (asksCharacter) {
+    warmth += 2;
+    pressure -= 1;
   }
   if (vulnerable) {
-    trust += 5;
-    anger -= 2;
-    vulnerability += 8;
-  }
-  if (usesHumor && state.metrics.anger < 58) {
-    trust += 2;
-    anger -= 2;
+    warmth += 3;
+    pressure -= 2;
+    openness += 5;
   }
   if (defensive) {
-    trust -= 6;
-    anger += 8;
-    vulnerability -= 3;
+    warmth -= 6;
+    pressure += 8;
+    openness -= 3;
   }
   if (dismissive) {
-    trust -= 15;
-    anger += 20;
-    vulnerability -= 8;
+    warmth -= 15;
+    pressure += 20;
+    openness -= 8;
   }
-  const discoveries: StateDiscoveries = {
-    namedSpecificHurt,
-    ownedChoice,
-    concretePlan,
-    relationshipChosen,
-  };
+
   const delta: MetricDelta = {
-    trust: clamp(trust, -18, 16),
-    anger: clamp(anger, -16, 22),
-    vulnerability: clamp(vulnerability, -12, 16),
+    warmth: clamp(warmth, -18, 16),
+    pressure: clamp(pressure, -16, 22),
+    openness: clamp(openness, -12, 16),
   };
 
   const event =
-    context.round === 3 &&
-    (!state.flags.namedSpecificHurt || !state.flags.concretePlan)
+    context.round === definition.turning.round
       ? createTurningPointEvent(
           context.round,
           state.sessionId.slice(0, 8),
@@ -162,45 +154,35 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
         )
       : null;
 
-  const assessment = describeAssessment({
-    namedSpecificHurt,
-    ownedChoice,
-    concretePlan,
-    relationshipChosen,
-    defensive,
-    dismissive,
-  });
-
-  const projectedTrust = state.metrics.trust + delta.trust;
-  const projectedAnger = state.metrics.anger + delta.anger;
-  const projectedStrongRepair =
-    (state.flags.namedSpecificHurt || namedSpecificHurt) &&
-    (state.flags.concretePlan || concretePlan) &&
-    (state.flags.relationshipChosen || relationshipChosen);
+  const projectedFlags = mergeSignals(state.flags, signals);
+  const projectedWarmth = state.metrics.warmth + delta.warmth;
+  const projectedPressure = state.metrics.pressure + delta.pressure;
+  const signalCount = Object.values(projectedFlags).filter(Boolean).length;
   const shouldEnd =
-    (context.round >= 4 &&
-      projectedTrust >= 72 &&
-      projectedAnger <= 40 &&
-      projectedStrongRepair) ||
-    projectedTrust <= 10 ||
-    projectedAnger >= 90;
+    (context.round >= definition.thresholds.sMinRound &&
+      projectedWarmth >= definition.thresholds.sWarmth &&
+      projectedPressure <= definition.thresholds.sPressure &&
+      projectedFlags.understoodNeed &&
+      projectedFlags.proposedAction &&
+      signalCount >= 3) ||
+    projectedWarmth <= 8 ||
+    projectedPressure >= 94;
 
   return {
-    assessment,
+    assessment: describeAssessment(signals, defensive, dismissive),
     delta,
-    discoveries,
+    discoveries: signals,
     event,
-    actorBrief: buildActorBrief({
-      namedSpecificHurt,
-      concretePlan,
+    actorBrief: buildActorBrief(
+      signals,
       defensive,
       dismissive,
       vulnerable,
-      event: Boolean(event),
-    }),
+      Boolean(event),
+    ),
     shouldEnd,
     suggestedEndReason:
-      projectedTrust <= 10 || projectedAnger >= 90
+      projectedWarmth <= 8 || projectedPressure >= 94
         ? 'relationship_break'
         : shouldEnd
           ? 'breakthrough'
@@ -210,19 +192,15 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
 
 export function mockActor(context: ActorContext): ActorPerformance {
   const { director, state, playerLine, activeEvent } = context;
-  const isFemale = context.briefing.character.gender === 'female';
+  const definition = getScenarioDefinition(context.briefing.id);
+  const signals = evaluateSignals(playerLine, definition);
   const dismissive = DISMISSIVE_PATTERN.test(playerLine);
   const defensive = DEFENSIVE_PATTERN.test(playerLine);
-  const hurt = HURT_PATTERN.test(playerLine);
-  const plan = PLAN_PATTERN.test(playerLine);
-  const ownership = OWNERSHIP_PATTERN.test(playerLine);
-  const vulnerable = VULNERABLE_PATTERN.test(playerLine);
+  const line = definition.mock;
 
   if (dismissive) {
     return performance(
-      isFemale
-        ? '原来我在饭桌上替你编的三个理由，统称“想太多”。这个需求砍得真快。'
-        : '原来我在饭桌上替你编的三个理由，统称“想太多”。这个异常处理得真省事。',
+      line.dismissive,
       'done',
       'icy',
       'flat',
@@ -230,44 +208,44 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'line',
       'turned-away',
       'checks-phone',
-      '对方重新点亮叫车页面，拇指停在确认按钮上。',
+      '对方把视线移开，刚才留下的谈话空间迅速变窄。',
       director.delta,
     );
   }
 
-  if (hurt && plan && ownership) {
+  if (signals.understoodNeed && signals.proposedAction) {
     return performance(
-      '明天十点，和我一起去见她。你亲口回答那句“认真的吗”——敢写进日历吗？',
-      state.metrics.trust >= 62 ? 'softening' : 'testing',
+      line.breakthrough,
+      state.metrics.warmth >= 62 ? 'softening' : 'testing',
       'quiet',
       'raised',
       'direct',
       'parted',
       'leaning',
-      'releases-handle',
-      '对方的手离开拉杆，却还没有把行李箱推回去。',
+      'reaches-out',
+      '对方没有立刻答应，但第一次把身体转回你这边。',
       director.delta,
     );
   }
 
-  if (hurt && ownership) {
+  if (signals.understoodNeed) {
     return performance(
-      '对，最难看的不是空椅子。是我妈看着我，等我替你证明你很认真。继续。',
+      line.understood,
       'hurt',
       'shaky',
       'soft',
       'wet',
       'downturned',
-      'holding-handle',
+      'standing',
       'wipes-eye',
-      '对方偏开脸，飞快擦过眼角，声音第一次没那么稳。',
+      '对方停了一拍，让那句被理解的话真正落下来。',
       director.delta,
     );
   }
 
-  if (plan) {
+  if (signals.proposedAction) {
     return performance(
-      '计划听起来很完整。现在告诉我：你是在修今晚，还是在管理明天的日程？',
+      line.action,
       'testing',
       'sharp',
       'raised',
@@ -275,31 +253,29 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'line',
       'arms-crossed',
       'none',
-      '对方松开拉杆，抱起手臂，等你给计划一个真正的理由。',
+      '对方开始检验方案，而不是直接把它挡回去。',
       director.delta,
     );
   }
 
-  if (vulnerable) {
+  if (signals.respectedChoice) {
     return performance(
-      '你可以怕。可你消失的时候，把所有怕都留给了我。你准备怎么让我下次不用猜？',
+      line.respectful,
       'softening',
-      'quiet',
       'soft',
-      'wet',
+      'soft',
+      'direct',
       'parted',
-      'leaning',
-      'releases-handle',
-      '对方看向你，怒意退了一步，问题仍然留在原地。',
+      'relaxed',
+      'nods',
+      '对方肩膀松了一点，仍把最终选择留在自己手里。',
       director.delta,
     );
   }
 
   if (defensive) {
     return performance(
-      isFemale
-        ? '理由排得这么整齐，差点能进迭代了。现在轮到你本人说一句真的。'
-        : '理由清单编译通过了。现在轮到你本人，说说今晚那个故障怎么修。',
+      line.defensive,
       'angry',
       'dry',
       'furrowed',
@@ -307,112 +283,133 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'smirk',
       'arms-crossed',
       'none',
-      isFemale
-        ? '她靠在墙边，语气还是软的，问题却一个都没少。'
-        : '他靠在墙边，像等一个迟迟没修的故障。',
+      '对方用一句很轻的反问，截住继续扩张的理由。',
       director.delta,
     );
   }
 
-  if (activeEvent?.id === 'mother-voice-note') {
+  if (activeEvent?.id === definition.turning.id) {
     return performance(
-      '她还在问我到家没有。你看，她到现在都在担心我，我到现在还在替你想理由。',
+      line.event,
       'hurt',
       'shaky',
       'soft',
       'averted',
       'downturned',
-      'holding-handle',
-      'checks-phone',
-      '手机屏幕亮了一瞬，对方没有点开那条语音。',
+      definition.turning.pose,
+      definition.turning.gesture,
+      render(definition.turning.stageDirection, context),
       director.delta,
     );
   }
 
-  if (state.metrics.anger <= 42) {
+  if (state.metrics.pressure <= 42) {
     return performance(
-      '这句我听见了。行李箱还在门口——你还有机会告诉我，明天会具体哪里不一样。',
+      line.softening,
       'softening',
       'soft',
       'soft',
       'direct',
       'parted',
-      'leaning',
-      'releases-handle',
-      '对方把拉杆按低一格，仍然看着你。',
+      'relaxed',
+      'nods',
+      '对方仍在确认细节，但不再只想着结束对话。',
       director.delta,
     );
   }
 
   return performance(
-    '你在说你自己发生了什么。我问的是：今晚落在我身上的，究竟是什么？',
+    line.guarded,
     'guarded',
     'sharp',
     'furrowed',
     'direct',
     'line',
-    'holding-handle',
+    'standing',
     'none',
-    '对方握紧拉杆，给你留下一段并不友善的沉默。',
+    '对方保持原来的位置，把问题重新推回你面前。',
     director.delta,
   );
 }
 
 export function mockJudge(context: JudgeContext): JudgeVerdict {
   const { state, lockedEnding, transcript } = context;
-  const characterName = context.briefing.character.name;
+  const definition = getScenarioDefinition(context.briefing.id);
+  const ending = getEndingDefinition(
+    context.briefing.id,
+    lockedEnding.endingId,
+  );
   const playerLines = transcript.filter((entry) => entry.speaker === 'player');
   const score = clamp(
     Math.round(
-      state.metrics.trust * 0.55 +
-        (100 - state.metrics.anger) * 0.29 +
-        Number(state.flags.namedSpecificHurt) * 4 +
-        Number(state.flags.ownedChoice) * 4 +
-        Number(state.flags.concretePlan) * 4 +
-        Number(state.flags.relationshipChosen) * 4,
+      state.metrics.warmth * 0.5 +
+        (100 - state.metrics.pressure) * 0.3 +
+        state.metrics.openness * 0.1 +
+        Object.values(state.flags).filter(Boolean).length * 2.5,
     ),
     0,
     100,
   );
 
-  const titleByEnding = {
-    'breakfast-stays-warm': '人形关系补丁',
-    'suitcase-by-the-door': '试用期续杯员',
-    'elevator-going-down': '理由批发市场',
+  const titleByTier = {
+    S: '关系实干家',
+    A: '留白协商员',
+    C: '气氛绕行者',
   } as const;
-  const roastByEnding = {
-    'breakfast-stays-warm':
-      '你终于发现，诚意不是语气词，是明天十点真的会响的闹钟。',
-    'suitcase-by-the-door':
-      '你把关系从“立即卸载”抢救成了“保留观察”，更新日志还得继续写。',
-    'elevator-going-down':
-      `你解释得像一份完整事故报告，可惜${characterName}今晚招聘的是伴侣。`,
+  const roastByTier = {
+    S: '你终于把在意从语气词做成了一个对方可以选择的具体行动。',
+    A: '你把局面从立即结束抢救成了愿意再谈，下一版别只修措辞。',
+    C: `${context.briefing.character.name}需要的是一个能共同决定的人，你交付的却主要是解释。`,
   } as const;
-
-  const keyMoments = selectKeyMoments(playerLines);
 
   return {
     endingId: lockedEnding.endingId,
     tier: lockedEnding.tier,
     score,
-    title: titleByEnding[lockedEnding.endingId],
-    roast: roastByEnding[lockedEnding.endingId],
+    title: titleByTier[lockedEnding.tier],
+    roast: roastByTier[lockedEnding.tier],
     epilogue: lockedEnding.defaultEpilogue,
     goal: {
-      label: `让${characterName}留下吃早餐`,
-      met:
-        lockedEnding.endingId === 'breakfast-stays-warm' ||
-        lockedEnding.endingId === 'suitcase-by-the-door',
-      detail:
-        lockedEnding.endingId === 'breakfast-stays-warm'
-          ? '对方把行李箱推回去了。'
-          : lockedEnding.endingId === 'suitcase-by-the-door'
-            ? '对方取消了车，愿意留下吃早餐。'
-            : '对方带着行李离开了。',
+      label: context.briefing.goal,
+      met: lockedEnding.tier !== 'C',
+      detail: renderText(ending.goalDetail, context.briefing.character.name),
     },
-    keyMoments,
-    shareText: `我在《关系修罗场》打出「${lockedEnding.title}」${lockedEnding.tier} 级结局，${score} 分，称号「${titleByEnding[lockedEnding.endingId]}」。七句话，你能让门口的行李箱留下吗？`,
+    keyMoments: selectKeyMoments(playerLines, definition),
+    shareText:
+      `我在《关系修炼》第 ${definition.number} 关打出「${ending.title}」${lockedEnding.tier} 级结局，${score} 分，称号「${titleByTier[lockedEnding.tier]}」。`,
   };
+}
+
+function evaluateSignals(
+  text: string,
+  definition: ScenarioDefinition,
+): EvaluationSignals {
+  return {
+    understoodNeed:
+      UNDERSTANDING_PATTERN.test(text) ||
+      includesKeyword(text, definition.signalKeywords.understoodNeed),
+    proposedAction:
+      ACTION_PATTERN.test(text) ||
+      includesKeyword(text, definition.signalKeywords.proposedAction),
+    respectedChoice: RESPECT_PATTERN.test(text),
+    sincereCare: CARE_PATTERN.test(text),
+  };
+}
+
+function mergeSignals(
+  current: EvaluationSignals,
+  next: EvaluationSignals,
+): EvaluationSignals {
+  return {
+    understoodNeed: current.understoodNeed || next.understoodNeed,
+    proposedAction: current.proposedAction || next.proposedAction,
+    respectedChoice: current.respectedChoice || next.respectedChoice,
+    sincereCare: current.sincereCare || next.sincereCare,
+  };
+}
+
+function includesKeyword(text: string, keywords: readonly string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword));
 }
 
 function performance(
@@ -437,75 +434,83 @@ function performance(
   };
 }
 
-function describeAssessment(signals: {
-  namedSpecificHurt: boolean;
-  ownedChoice: boolean;
-  concretePlan: boolean;
-  relationshipChosen: boolean;
-  defensive: boolean;
-  dismissive: boolean;
-}): string {
-  if (signals.dismissive) return '玩家贬低冲突，对方确认自己的感受仍未被看见。';
-  if (
-    signals.namedSpecificHurt &&
-    signals.concretePlan &&
-    signals.ownedChoice
-  ) {
-    return '玩家同时识别具体伤害、承担选择并提出行动，局势出现关键突破。';
-  }
-  if (signals.namedSpecificHurt) return '玩家第一次说中了对方在饭桌上的具体难堪。';
-  if (signals.concretePlan) return '玩家给出行动框架，情感动机仍需接受检验。';
-  if (signals.defensive) return '玩家继续解释自己，冲突焦点从对方身上移开。';
-  if (signals.relationshipChosen) return '玩家表达关系承诺，具体证据仍然不足。';
-  return '玩家的回应较抽象，局势轻微消耗且没有形成新进展。';
+function describeAssessment(
+  signals: EvaluationSignals,
+  defensive: boolean,
+  dismissive: boolean,
+): string {
+  if (dismissive) return '玩家贬低当下需要，对话压力明显上升。';
+  const count = Object.values(signals).filter(Boolean).length;
+  if (count >= 3) return '玩家同时理解需要、尊重选择并给出行动，局势出现关键突破。';
+  if (signals.understoodNeed) return '玩家说中了对方当下真正介意或需要的部分。';
+  if (signals.proposedAction) return '玩家给出行动框架，仍需确认它是否尊重对方选择。';
+  if (defensive) return '玩家继续解释自己，冲突焦点从对方身上移开。';
+  if (signals.sincereCare) return '玩家表达真实在意，具体承接仍然不足。';
+  return '回应较抽象，局势轻微消耗且没有形成新进展。';
 }
 
-function buildActorBrief(signals: {
-  namedSpecificHurt: boolean;
-  concretePlan: boolean;
-  defensive: boolean;
-  dismissive: boolean;
-  vulnerable: boolean;
-  event: boolean;
-}): string {
-  if (signals.event) return '手机语音事件打断对话。让对方短暂失控，再迅速收住。';
-  if (signals.dismissive) return '冷到近乎结束，点出饭桌细节，手回到叫车按钮。';
-  if (signals.namedSpecificHurt && signals.concretePlan) {
-    return '出现动摇，用一个具体时间问题检验行动是否真实。';
+function buildActorBrief(
+  signals: EvaluationSignals,
+  defensive: boolean,
+  dismissive: boolean,
+  vulnerable: boolean,
+  event: boolean,
+): string {
+  if (event) return '让转折事件进入现场，短暂暴露情绪，再把选择交还玩家。';
+  if (dismissive) return '冷到接近结束，用场景细节点出玩家仍未看见边界。';
+  if (signals.understoodNeed && signals.proposedAction) {
+    return '出现动摇，用一个具体问题检验行动是否真实且可共同决定。';
   }
-  if (signals.namedSpecificHurt) return '承认对方终于看见伤口，仍要求继续说。';
-  if (signals.vulnerable) return '怒意下降一格，接受脆弱，同时追问下次的安全感。';
-  if (signals.defensive) return '用一句贴合职业的冷吐槽拆穿理由清单。';
-  return '保持拉杆在手，用问题把焦点推回对方承受的后果。';
+  if (signals.understoodNeed) return '承认对方终于看见需要，仍要求继续说具体。';
+  if (signals.respectedChoice) return '压力下降一格，表现选择权被归还后的松动。';
+  if (vulnerable) return '接受玩家的脆弱，但追问它如何转化为可靠行动。';
+  if (defensive) return '用一句贴合人物语言指纹的轻吐槽拆穿理由清单。';
+  return '保持戒备，用当前关卡的具体问题把焦点推回对方需要。';
 }
 
 function selectKeyMoments(
   playerLines: TranscriptEntry[],
+  definition: ScenarioDefinition,
 ): JudgeVerdict['keyMoments'] {
   const ranked = [...playerLines]
     .map((entry) => {
-      const helped =
-        HURT_PATTERN.test(entry.text) ||
-        PLAN_PATTERN.test(entry.text) ||
-        OWNERSHIP_PATTERN.test(entry.text);
+      const signals = evaluateSignals(entry.text, definition);
+      const helped = Object.values(signals).some(Boolean);
       const hurt =
         DEFENSIVE_PATTERN.test(entry.text) ||
         DISMISSIVE_PATTERN.test(entry.text);
-      return { entry, helped, hurt, weight: helped || hurt ? 2 : 1 };
+      return {
+        entry,
+        helped,
+        hurt,
+        weight: hurt ? 3 : helped ? 2 : 1,
+      };
     })
-    .sort((a, b) => b.weight - a.weight)
+    .sort((left, right) => right.weight - left.weight)
     .slice(0, Math.min(3, Math.max(1, playerLines.length)));
 
   return ranked.map(({ entry, helped, hurt }) => ({
     round: entry.round,
     quote: entry.text.slice(0, 100),
     analysis: hurt
-      ? '这句话把焦点拉回理由，让对方更确信自己仍要独自消化后果。'
+      ? '这句话把焦点拉回理由或否定，让对方更需要保护自己的选择。'
       : helped
-        ? '这句话提供了具体识别或可验证行动，关系状态因此出现实质变化。'
-        : '这句话维持了对话，却缺少能让对方重新下注的具体信息。',
+        ? '这句话提供了具体理解、行动或选择空间，关系状态因此出现实质变化。'
+        : '这句话维持了对话，却缺少能让对方重新参与决定的具体信息。',
     impact: hurt ? 'hurt' : helped ? 'helped' : 'turned',
   }));
+}
+
+function render(value: string, context: ActorContext): string {
+  const pronoun =
+    context.briefing.character.gender === 'female' ? '她' : '他';
+  return value
+    .replaceAll('{name}', context.briefing.character.name)
+    .replaceAll('{pronoun}', pronoun);
+}
+
+function renderText(value: string, characterName: string): string {
+  return value.replaceAll('{name}', characterName);
 }
 
 function clamp(value: number, min: number, max: number): number {

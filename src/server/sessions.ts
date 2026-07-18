@@ -9,6 +9,7 @@ import {
   type GameState,
   type JudgeVerdict,
   type PublicSession,
+  type ScenarioId,
   type SessionUsage,
   type TranscriptEntry,
 } from '../shared/contracts.js';
@@ -20,11 +21,13 @@ import {
   selectEnding,
 } from './engine.js';
 import {
-  ENDING_CATALOG,
   createBriefing,
   createEndingVideoEvent,
   createOpeningEvent,
   createOpeningPerformance,
+  createTurningPointEvent,
+  getEndingDefinition,
+  getScenarioDefinition,
 } from './scenario.js';
 import type { UsageTracker } from './usage.js';
 
@@ -67,10 +70,13 @@ export class GameSessionService {
     return this.agents.providerKind;
   }
 
-  create(playerGender: Gender = 'male'): PublicSession {
+  create(
+    scenarioId: ScenarioId = 'suitcase-at-one',
+    playerGender: Gender = 'male',
+  ): PublicSession {
     const sessionId = randomUUID();
     const now = new Date();
-    const briefing = createBriefing(playerGender);
+    const briefing = createBriefing(scenarioId, playerGender);
     const openingPerformance = createOpeningPerformance(briefing);
     const opening = TranscriptEntrySchema.parse({
       id: randomUUID(),
@@ -82,7 +88,7 @@ export class GameSessionService {
       createdAt: now.toISOString(),
     });
     const state = GameStateSchema.parse({
-      ...createInitialState(sessionId, playerGender),
+      ...createInitialState(sessionId, scenarioId, playerGender),
       activeEvent: createOpeningEvent(briefing),
     });
     const stored: StoredSession = {
@@ -134,7 +140,7 @@ export class GameSessionService {
       });
       const workingTranscript = [...stored.transcript, playerEntry];
 
-      const rawDecision = await this.agents.direct({
+      const proposedDecision = await this.agents.direct({
         briefing: stored.briefing,
         state: {
           ...stored.state,
@@ -145,6 +151,18 @@ export class GameSessionService {
         round,
         roundsLeftAfterThis: stored.state.maxRounds - round,
       });
+      const definition = getScenarioDefinition(stored.briefing.id);
+      const rawDecision = {
+        ...proposedDecision,
+        event:
+          round === definition.turning.round
+            ? createTurningPointEvent(
+                round,
+                stored.state.sessionId.slice(0, 8),
+                stored.briefing,
+              )
+            : null,
+      };
 
       const applied = applyDirectorDecision(
         stored.state,
@@ -179,7 +197,10 @@ export class GameSessionService {
       let verdict: JudgeVerdict | null = null;
 
       if (endingId) {
-        const ending = ENDING_CATALOG[endingId];
+        const ending = getEndingDefinition(
+          applied.state.scenarioId,
+          endingId,
+        );
         nextState = GameStateSchema.parse({
           ...applied.state,
           phase: 'judging',
@@ -198,10 +219,16 @@ export class GameSessionService {
             endingId,
             tier: ending.tier,
             title: ending.title,
-            defaultEpilogue: ending.defaultEpilogue,
+            defaultEpilogue:
+              nextState.activeEvent?.description ??
+              ending.defaultEpilogue,
           },
         });
-        verdict = lockVerdict(rawVerdict, endingId);
+        verdict = lockVerdict(
+          rawVerdict,
+          applied.state.scenarioId,
+          endingId,
+        );
         nextState = GameStateSchema.parse({
           ...nextState,
           phase: 'result',

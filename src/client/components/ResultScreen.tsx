@@ -6,12 +6,14 @@ interface ResultScreenProps {
   session: PublicSession;
   replaying: boolean;
   onReplay: () => void;
+  onBackToLevels: () => void;
 }
 
 export function ResultScreen({
   session,
   replaying,
   onReplay,
+  onBackToLevels,
 }: ResultScreenProps) {
   const [copied, setCopied] = useState(false);
   const verdict = session.verdict;
@@ -29,17 +31,15 @@ export function ResultScreen({
       data-testid="result-screen"
     >
       <header className="result-topbar">
-        <a
-          className="brand brand--small"
-          href={import.meta.env.BASE_URL}
-          aria-label="关系修罗场"
+        <button
+          className="brand brand--small brand-button"
+          type="button"
+          onClick={onBackToLevels}
+          aria-label="返回关系修炼关卡"
         >
           <span className="brand__mark">修</span>
-          <span>
-            <b>关系修罗场</b>
-            <small>CASE CLOSED</small>
-          </span>
-        </a>
+          <span><b>关系修炼</b></span>
+        </button>
         <span>单局记录已封存 · 关系状态到此为止</span>
       </header>
 
@@ -48,8 +48,10 @@ export function ResultScreen({
           {verdict.tier}
         </div>
         <div className="result-title">
-          <p>ENDING / {verdict.endingId.toUpperCase()}</p>
-          <h1>{endingTitle(verdict.endingId)}</h1>
+          <p>第 {session.briefing.number} 关 · 结局</p>
+          <h1>
+            {session.state.activeEvent?.title ?? session.briefing.title}
+          </h1>
           <span className="player-title">获得称号 · {verdict.title}</span>
           <blockquote>“{verdict.roast}”</blockquote>
         </div>
@@ -83,12 +85,12 @@ export function ResultScreen({
           </div>
           <div>
             <Metric
-              label="最终信任"
-              value={session.state.metrics.trust}
+              label="关系温度"
+              value={session.state.metrics.warmth}
             />
             <Metric
-              label="最终愤怒"
-              value={session.state.metrics.anger}
+              label="对话压力"
+              value={session.state.metrics.pressure}
               danger
             />
           </div>
@@ -147,7 +149,16 @@ export function ResultScreen({
           disabled={replaying}
           data-testid="replay-game"
         >
-          {replaying ? '重置现场中…' : '换个说法，再来一局'}
+          {replaying ? '重置现场中…' : '再试一次'}
+        </button>
+        <button
+          className="levels-button"
+          type="button"
+          onClick={onBackToLevels}
+          disabled={replaying}
+          data-testid="back-to-levels"
+        >
+          返回关卡
         </button>
       </footer>
     </main>
@@ -172,15 +183,6 @@ function Metric({
       <b>{value}</b>
     </div>
   );
-}
-
-function endingTitle(endingId: NonNullable<PublicSession['state']['endingId']>) {
-  const titles = {
-    'breakfast-stays-warm': '早餐还热',
-    'suitcase-by-the-door': '行李留在门口',
-    'elevator-going-down': '电梯下行',
-  };
-  return titles[endingId];
 }
 
 function formatCost(cost: number | null): string {

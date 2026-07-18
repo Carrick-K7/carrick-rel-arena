@@ -1,6 +1,107 @@
 import { z } from 'zod';
 
+export const SCENARIO_IDS = [
+  'weekend-market',
+  'rain-check',
+  'rejected-proposal',
+  'friend-farewell',
+  'shared-sunday',
+  'party-joke',
+  'suitcase-at-one',
+  'next-home',
+] as const;
+
+export const ScenarioIdSchema = z.enum(SCENARIO_IDS);
+export const ScenarioTypeSchema = z.enum([
+  'invitation',
+  'comfort',
+  'alignment',
+  'repair',
+]);
+export const DifficultySchema = z.enum(['入门', '进阶', '高压']);
 export const GenderSchema = z.enum(['male', 'female']);
+
+export const ENDING_IDS_BY_SCENARIO = {
+  'weekend-market': [
+    'weekend-has-plans',
+    'another-day-with-date',
+    'polite-goodbye',
+  ],
+  'rain-check': [
+    'rainy-day-program',
+    'rescheduled',
+    'separate-ways-home',
+  ],
+  'rejected-proposal': [
+    'laptop-finally-closed',
+    'hot-noodles-first',
+    'office-lights',
+  ],
+  'friend-farewell': [
+    'company-tonight',
+    'ten-more-minutes',
+    'really-fine',
+  ],
+  'shared-sunday': [
+    'half-busy-half-idle',
+    'sunday-draft',
+    'separate-sundays',
+  ],
+  'party-joke': [
+    'back-side-by-side',
+    'ask-first-next-time',
+    'muted-group-chat',
+  ],
+  'suitcase-at-one': [
+    'breakfast-stays-warm',
+    'suitcase-by-the-door',
+    'elevator-going-down',
+  ],
+  'next-home': [
+    'same-key',
+    'two-more-viewings',
+    'two-addresses',
+  ],
+} as const;
+
+export const ENDING_IDS = [
+  'weekend-has-plans',
+  'another-day-with-date',
+  'polite-goodbye',
+  'rainy-day-program',
+  'rescheduled',
+  'separate-ways-home',
+  'laptop-finally-closed',
+  'hot-noodles-first',
+  'office-lights',
+  'company-tonight',
+  'ten-more-minutes',
+  'really-fine',
+  'half-busy-half-idle',
+  'sunday-draft',
+  'separate-sundays',
+  'back-side-by-side',
+  'ask-first-next-time',
+  'muted-group-chat',
+  'breakfast-stays-warm',
+  'suitcase-by-the-door',
+  'elevator-going-down',
+  'same-key',
+  'two-more-viewings',
+  'two-addresses',
+] as const;
+
+export const EndingIdSchema = z.enum(ENDING_IDS);
+export const EndingTierSchema = z.enum(['S', 'A', 'C']);
+
+export function endingBelongsToScenario(
+  scenarioId: ScenarioId,
+  endingId: EndingId,
+): boolean {
+  return (ENDING_IDS_BY_SCENARIO[scenarioId] as readonly string[]).includes(
+    endingId,
+  );
+}
 
 export const GamePhaseSchema = z.enum([
   'briefing',
@@ -30,14 +131,6 @@ export const ToneSchema = z.enum([
   'soft',
 ]);
 
-export const EndingIdSchema = z.enum([
-  'breakfast-stays-warm',
-  'suitcase-by-the-door',
-  'elevator-going-down',
-]);
-
-export const EndingTierSchema = z.enum(['S', 'A', 'C']);
-
 export const EndReasonSchema = z.enum([
   'breakthrough',
   'provisional_truce',
@@ -46,16 +139,16 @@ export const EndReasonSchema = z.enum([
 ]);
 
 export const MetricDeltaSchema = z.strictObject({
-  trust: z.number().int().min(-18).max(16),
-  anger: z.number().int().min(-16).max(22),
-  vulnerability: z.number().int().min(-12).max(16),
+  warmth: z.number().int().min(-18).max(16),
+  pressure: z.number().int().min(-16).max(22),
+  openness: z.number().int().min(-12).max(16),
 });
 
-export const StateDiscoveriesSchema = z.strictObject({
-  namedSpecificHurt: z.boolean(),
-  ownedChoice: z.boolean(),
-  concretePlan: z.boolean(),
-  relationshipChosen: z.boolean(),
+export const EvaluationSignalsSchema = z.strictObject({
+  understoodNeed: z.boolean(),
+  proposedAction: z.boolean(),
+  respectedChoice: z.boolean(),
+  sincereCare: z.boolean(),
 });
 
 export const VideoHookSchema = z.strictObject({
@@ -76,7 +169,7 @@ export const StoryEventSchema = z.strictObject({
 export const DirectorDecisionSchema = z.strictObject({
   assessment: z.string().min(1).max(240),
   delta: MetricDeltaSchema,
-  discoveries: StateDiscoveriesSchema,
+  discoveries: EvaluationSignalsSchema,
   event: StoryEventSchema.nullable(),
   actorBrief: z.string().min(1).max(400),
   shouldEnd: z.boolean(),
@@ -99,6 +192,14 @@ export const ActorPerformanceSchema = z.strictObject({
       'turned-away',
       'leaning',
       'relaxed',
+      'seated',
+      'standing',
+      'walking',
+      'packing',
+      'holding-laptop',
+      'holding-umbrella',
+      'at-door',
+      'at-table',
     ]),
     gesture: z.enum([
       'none',
@@ -106,6 +207,13 @@ export const ActorPerformanceSchema = z.strictObject({
       'checks-phone',
       'releases-handle',
       'wipes-eye',
+      'closes-laptop',
+      'offers-seat',
+      'folds-umbrella',
+      'sets-down-bag',
+      'reaches-out',
+      'turns-key',
+      'nods',
     ]),
     stageDirection: z.string().min(1).max(180),
   }),
@@ -116,34 +224,49 @@ export const TranscriptEntrySchema = z.strictObject({
   id: z.string().min(1),
   speaker: z.enum(['player', 'character']),
   text: z.string().min(1).max(280),
-  round: z.number().int().min(0).max(8),
+  round: z.number().int().min(0).max(7),
   emotion: EmotionSchema.nullable(),
   tone: ToneSchema.nullable(),
   createdAt: z.string().datetime(),
 });
 
-export const GameStateSchema = z.strictObject({
-  sessionId: z.string().uuid(),
-  scenarioId: z.literal('suitcase-at-one'),
-  playerGender: GenderSchema,
-  opponentGender: GenderSchema,
-  phase: GamePhaseSchema,
-  round: z.number().int().min(0).max(7),
-  maxRounds: z.literal(7),
-  metrics: z.strictObject({
-    trust: z.number().int().min(0).max(100),
-    anger: z.number().int().min(0).max(100),
-    vulnerability: z.number().int().min(0).max(100),
-  }),
-  flags: z.strictObject({
-    namedSpecificHurt: z.boolean(),
-    ownedChoice: z.boolean(),
-    concretePlan: z.boolean(),
-    relationshipChosen: z.boolean(),
-  }),
-  activeEvent: StoryEventSchema.nullable(),
-  endingId: EndingIdSchema.nullable(),
-});
+export const GameStateSchema = z
+  .strictObject({
+    sessionId: z.string().uuid(),
+    scenarioId: ScenarioIdSchema,
+    playerGender: GenderSchema,
+    opponentGender: GenderSchema,
+    phase: GamePhaseSchema,
+    round: z.number().int().min(0).max(7),
+    maxRounds: z.number().int().min(5).max(7),
+    metrics: z.strictObject({
+      warmth: z.number().int().min(0).max(100),
+      pressure: z.number().int().min(0).max(100),
+      openness: z.number().int().min(0).max(100),
+    }),
+    flags: EvaluationSignalsSchema,
+    activeEvent: StoryEventSchema.nullable(),
+    endingId: EndingIdSchema.nullable(),
+  })
+  .superRefine((state, context) => {
+    if (
+      state.endingId &&
+      !endingBelongsToScenario(state.scenarioId, state.endingId)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['endingId'],
+        message: '结局不属于当前关卡',
+      });
+    }
+    if (state.round > state.maxRounds) {
+      context.addIssue({
+        code: 'custom',
+        path: ['round'],
+        message: '当前轮次不能超过关卡轮次上限',
+      });
+    }
+  });
 
 export const GoalResultSchema = z.strictObject({
   label: z.string().min(1).max(80),
@@ -159,20 +282,37 @@ export const JudgeVerdictSchema = z.strictObject({
   roast: z.string().min(1).max(180),
   epilogue: z.string().min(1).max(360),
   goal: GoalResultSchema,
-  keyMoments: z.array(
-    z.strictObject({
-      round: z.number().int().min(1).max(7),
-      quote: z.string().min(1).max(120),
-      analysis: z.string().min(1).max(220),
-      impact: z.enum(['turned', 'helped', 'hurt']),
-    }),
-  ).min(1).max(4),
+  keyMoments: z
+    .array(
+      z.strictObject({
+        round: z.number().int().min(1).max(7),
+        quote: z.string().min(1).max(120),
+        analysis: z.string().min(1).max(220),
+        impact: z.enum(['turned', 'helped', 'hurt']),
+      }),
+    )
+    .min(1)
+    .max(4),
   shareText: z.string().min(1).max(180),
 });
 
+export const ScenarioSummarySchema = z.strictObject({
+  id: ScenarioIdSchema,
+  number: z.number().int().min(1).max(8),
+  type: ScenarioTypeSchema,
+  title: z.string().min(1).max(80),
+  summary: z.string().min(1).max(120),
+  difficulty: DifficultySchema,
+  maxRounds: z.number().int().min(5).max(7),
+});
+
 export const ScenarioBriefingSchema = z.strictObject({
-  id: z.literal('suitcase-at-one'),
+  id: ScenarioIdSchema,
+  number: z.number().int().min(1).max(8),
+  type: ScenarioTypeSchema,
   title: z.string(),
+  summary: z.string(),
+  difficulty: DifficultySchema,
   timeAndPlace: z.string(),
   premise: z.string(),
   playerRole: z.string(),
@@ -191,7 +331,8 @@ export const ScenarioBriefingSchema = z.strictObject({
     personality: z.string(),
   }),
   goal: z.string(),
-  maxRounds: z.literal(7),
+  maxRounds: z.number().int().min(5).max(7),
+  openingLine: z.string().min(1).max(160),
 });
 
 export const SessionUsageSchema = z.strictObject({
@@ -217,21 +358,45 @@ export const SessionUsageSchema = z.strictObject({
   alertCount: z.number().int().min(0),
 });
 
-export const PublicSessionSchema = z.strictObject({
-  briefing: ScenarioBriefingSchema,
-  state: GameStateSchema,
-  transcript: z.array(TranscriptEntrySchema),
-  lastPerformance: ActorPerformanceSchema,
-  verdict: JudgeVerdictSchema.nullable(),
-  usage: SessionUsageSchema,
-  expiresAt: z.string().datetime(),
-});
+export const PublicSessionSchema = z
+  .strictObject({
+    briefing: ScenarioBriefingSchema,
+    state: GameStateSchema,
+    transcript: z.array(TranscriptEntrySchema),
+    lastPerformance: ActorPerformanceSchema,
+    verdict: JudgeVerdictSchema.nullable(),
+    usage: SessionUsageSchema,
+    expiresAt: z.string().datetime(),
+  })
+  .superRefine((session, context) => {
+    if (session.briefing.id !== session.state.scenarioId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['briefing', 'id'],
+        message: '关卡简报与会话状态不一致',
+      });
+    }
+    if (
+      session.verdict &&
+      !endingBelongsToScenario(
+        session.state.scenarioId,
+        session.verdict.endingId,
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['verdict', 'endingId'],
+        message: '评判结局不属于当前关卡',
+      });
+    }
+  });
 
 export const CreateSessionResponseSchema = z.strictObject({
   session: PublicSessionSchema,
 });
 
 export const CreateSessionInputSchema = z.strictObject({
+  scenarioId: ScenarioIdSchema.default('suitcase-at-one'),
   playerGender: GenderSchema.default('male'),
 });
 
@@ -255,6 +420,9 @@ export const CapabilitiesSchema = z.strictObject({
   usageAlerting: z.boolean(),
 });
 
+export type ScenarioId = z.infer<typeof ScenarioIdSchema>;
+export type ScenarioType = z.infer<typeof ScenarioTypeSchema>;
+export type Difficulty = z.infer<typeof DifficultySchema>;
 export type GamePhase = z.infer<typeof GamePhaseSchema>;
 export type Gender = z.infer<typeof GenderSchema>;
 export type Emotion = z.infer<typeof EmotionSchema>;
@@ -263,7 +431,8 @@ export type EndingId = z.infer<typeof EndingIdSchema>;
 export type EndingTier = z.infer<typeof EndingTierSchema>;
 export type EndReason = z.infer<typeof EndReasonSchema>;
 export type MetricDelta = z.infer<typeof MetricDeltaSchema>;
-export type StateDiscoveries = z.infer<typeof StateDiscoveriesSchema>;
+export type EvaluationSignals = z.infer<typeof EvaluationSignalsSchema>;
+export type StateDiscoveries = EvaluationSignals;
 export type VideoHook = z.infer<typeof VideoHookSchema>;
 export type StoryEvent = z.infer<typeof StoryEventSchema>;
 export type DirectorDecision = z.infer<typeof DirectorDecisionSchema>;
@@ -271,6 +440,7 @@ export type ActorPerformance = z.infer<typeof ActorPerformanceSchema>;
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type JudgeVerdict = z.infer<typeof JudgeVerdictSchema>;
+export type ScenarioSummary = z.infer<typeof ScenarioSummarySchema>;
 export type ScenarioBriefing = z.infer<typeof ScenarioBriefingSchema>;
 export type SessionUsage = z.infer<typeof SessionUsageSchema>;
 export type PublicSession = z.infer<typeof PublicSessionSchema>;
