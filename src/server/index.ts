@@ -10,6 +10,8 @@ import express, {
 import { z, ZodError } from 'zod';
 import {
   CapabilitiesSchema,
+  CreateSessionInputSchema,
+  GenderSchema,
   ToneSchema,
   TurnInputSchema,
 } from '../shared/contracts.js';
@@ -20,7 +22,7 @@ import {
 } from './providers/index.js';
 import { ProviderError } from './providers/types.js';
 import { GameSessionService, SessionError } from './sessions.js';
-import { BRIEFING } from './scenario.js';
+import { createBriefing } from './scenario.js';
 import {
   readTtsConfig,
   synthesizeSpeech,
@@ -107,12 +109,18 @@ app.get('/api/capabilities', (_request, response) => {
   response.json(capabilities);
 });
 
-app.get('/api/scenario', (_request, response) => {
-  response.json({ briefing: BRIEFING });
+app.get('/api/scenario', (request, response) => {
+  const playerGender = GenderSchema
+    .default('male')
+    .parse(request.query.playerGender);
+  response.json({ briefing: createBriefing(playerGender) });
 });
 
-app.post('/api/sessions', turnLimit, (_request, response) => {
-  response.status(201).json({ session: sessions.create() });
+app.post('/api/sessions', turnLimit, (request, response) => {
+  const input = CreateSessionInputSchema.parse(request.body ?? {});
+  response
+    .status(201)
+    .json({ session: sessions.create(input.playerGender) });
 });
 
 app.get('/api/sessions/:sessionId', (request, response) => {
@@ -137,6 +145,7 @@ app.post(
 const SpeechInputSchema = z.strictObject({
   text: z.string().trim().min(1).max(160),
   tone: ToneSchema,
+  speakerGender: GenderSchema.optional(),
   sessionId: z.string().uuid().nullable().optional(),
 });
 
@@ -149,6 +158,7 @@ app.post('/api/speech', speechLimit, async (request, response) => {
       ttsConfig,
       input.text,
       input.tone,
+      input.speakerGender,
     );
     usageTracker.recordTts({
       provider: speech?.provider ?? 'browser',

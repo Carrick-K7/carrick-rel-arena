@@ -131,6 +131,23 @@ test('keeps the game usable at a mobile viewport', async ({ page }) => {
   expect(horizontalOverflow).toBe(false);
 });
 
+test('switches to the male opponent when the player chooses the woman role', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.getByText('黎岚，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="黎岚"]')).toBeVisible();
+
+  await page.getByTestId('choose-female').click();
+  await expect(page.getByText('周叙，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
+
+  await page.getByTestId('start-game').click();
+  await expect(page.getByTestId('latest-line')).toContainText('七句话');
+  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
+  await expect(page.getByText('周叙', { exact: true }).first()).toBeVisible();
+});
+
 async function readProvider(
   page: Page,
 ): Promise<'mock' | 'openai' | 'deepseek'> {

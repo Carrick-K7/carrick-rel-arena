@@ -175,6 +175,7 @@ export function mockDirector(context: DirectorContext): DirectorDecision {
       ? createTurningPointEvent(
           context.round,
           state.sessionId.slice(0, 8),
+          context.briefing,
         )
       : null;
 
@@ -244,7 +245,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'smirk',
       'holding-handle',
       'points-door',
-      '她轻轻敲了敲行李箱拉杆，像在给错误答案打叉。',
+      '对方轻轻敲了敲行李箱拉杆，像在给错误答案打叉。',
       director.delta,
     );
   }
@@ -259,7 +260,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'line',
       'turned-away',
       'checks-phone',
-      '她重新点亮叫车页面，拇指停在确认按钮上。',
+      '对方重新点亮叫车页面，拇指停在确认按钮上。',
       director.delta,
     );
   }
@@ -274,7 +275,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'parted',
       'leaning',
       'releases-handle',
-      '她的手离开拉杆，却还没有把行李箱推回去。',
+      '对方的手离开拉杆，却还没有把行李箱推回去。',
       director.delta,
     );
   }
@@ -289,7 +290,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'downturned',
       'holding-handle',
       'wipes-eye',
-      '她偏开脸，飞快擦过眼角，声音第一次没那么稳。',
+      '对方偏开脸，飞快擦过眼角，声音第一次没那么稳。',
       director.delta,
     );
   }
@@ -304,7 +305,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'line',
       'arms-crossed',
       'none',
-      '她松开拉杆，抱起手臂，等你给计划一个真正的理由。',
+      '对方松开拉杆，抱起手臂，等你给计划一个真正的理由。',
       director.delta,
     );
   }
@@ -319,7 +320,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'parted',
       'leaning',
       'releases-handle',
-      '她看向你，怒意退了一步，问题仍然留在原地。',
+      '对方看向你，怒意退了一步，问题仍然留在原地。',
       director.delta,
     );
   }
@@ -334,7 +335,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'smirk',
       'arms-crossed',
       'none',
-      '她靠在墙边，像审片一样等着下一版。',
+      '对方靠在墙边，像审片一样等着下一版。',
       director.delta,
     );
   }
@@ -349,7 +350,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'downturned',
       'holding-handle',
       'checks-phone',
-      '手机屏幕亮了一瞬，她没有点开那条语音。',
+      '手机屏幕亮了一瞬，对方没有点开那条语音。',
       director.delta,
     );
   }
@@ -364,7 +365,7 @@ export function mockActor(context: ActorContext): ActorPerformance {
       'parted',
       'leaning',
       'releases-handle',
-      '她把拉杆按低一格，仍然看着你。',
+      '对方把拉杆按低一格，仍然看着你。',
       director.delta,
     );
   }
@@ -378,13 +379,14 @@ export function mockActor(context: ActorContext): ActorPerformance {
     'line',
     'holding-handle',
     'none',
-    '她握紧拉杆，给你留下一段并不友善的沉默。',
+    '对方握紧拉杆，给你留下一段并不友善的沉默。',
     director.delta,
   );
 }
 
 export function mockJudge(context: JudgeContext): JudgeVerdict {
   const { state, lockedEnding, transcript } = context;
+  const characterName = context.briefing.character.name;
   const playerLines = transcript.filter((entry) => entry.speaker === 'player');
   const score = clamp(
     Math.round(
@@ -409,7 +411,7 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
     'suitcase-by-the-door':
       '你把关系从“立即卸载”抢救成了“保留观察”，更新日志还得继续写。',
     'elevator-going-down':
-      '你解释得像一份完整事故报告，可惜黎岚今晚招聘的是伴侣。',
+      `你解释得像一份完整事故报告，可惜${characterName}今晚招聘的是伴侣。`,
     'apology-allergen':
       '题目只禁一个词，你把它用出了俄罗斯方块消四行的气势。',
   } as const;
@@ -425,16 +427,16 @@ export function mockJudge(context: JudgeContext): JudgeVerdict {
     epilogue: lockedEnding.defaultEpilogue,
     goals: {
       publicGoal: {
-        label: '让黎岚留下吃早餐',
+        label: `让${characterName}留下吃早餐`,
         met:
           lockedEnding.endingId === 'breakfast-stays-warm' ||
           lockedEnding.endingId === 'suitcase-by-the-door',
         detail:
           lockedEnding.endingId === 'breakfast-stays-warm'
-            ? '她把行李箱推回去了。'
+            ? '对方把行李箱推回去了。'
             : lockedEnding.endingId === 'suitcase-by-the-door'
-              ? '她取消了车，仍保留观察期。'
-              : '她带着行李离开了。',
+              ? '对方取消了车，仍保留观察期。'
+              : '对方带着行李离开了。',
       },
       hiddenGoal: {
         label: '看见具体伤害，并给出共同修复行动',
@@ -493,7 +495,7 @@ function describeAssessment(signals: {
   restrictionHit: boolean;
 }): string {
   if (signals.restrictionHit) return '玩家触发禁词，形式化道歉挤占了真实回应。';
-  if (signals.dismissive) return '玩家贬低冲突，黎岚确认自己的感受仍未被看见。';
+  if (signals.dismissive) return '玩家贬低冲突，对方确认自己的感受仍未被看见。';
   if (
     signals.namedSpecificHurt &&
     signals.concretePlan &&
@@ -501,9 +503,9 @@ function describeAssessment(signals: {
   ) {
     return '玩家同时识别具体伤害、承担选择并提出行动，局势出现关键突破。';
   }
-  if (signals.namedSpecificHurt) return '玩家第一次说中了黎岚在饭桌上的具体难堪。';
+  if (signals.namedSpecificHurt) return '玩家第一次说中了对方在饭桌上的具体难堪。';
   if (signals.concretePlan) return '玩家给出行动框架，情感动机仍需接受检验。';
-  if (signals.defensive) return '玩家继续解释自己，冲突焦点从黎岚身上移开。';
+  if (signals.defensive) return '玩家继续解释自己，冲突焦点从对方身上移开。';
   if (signals.relationshipChosen) return '玩家表达关系承诺，具体证据仍然不足。';
   return '玩家的回应较抽象，局势轻微消耗且没有形成新进展。';
 }
@@ -516,7 +518,7 @@ function buildActorBrief(signals: {
   vulnerable: boolean;
   event: boolean;
 }): string {
-  if (signals.event) return '手机语音事件打断对话。让她短暂失控，再迅速收住。';
+  if (signals.event) return '手机语音事件打断对话。让对方短暂失控，再迅速收住。';
   if (signals.dismissive) return '冷到近乎结束，点出饭桌细节，手回到叫车按钮。';
   if (signals.namedSpecificHurt && signals.concretePlan) {
     return '出现动摇，用一个具体时间问题检验行动是否真实。';
@@ -524,7 +526,7 @@ function buildActorBrief(signals: {
   if (signals.namedSpecificHurt) return '承认对方终于看见伤口，仍要求继续说。';
   if (signals.vulnerable) return '怒意下降一格，接受脆弱，同时追问下次的安全感。';
   if (signals.defensive) return '用剪辑师式冷笑话拆穿理由清单。';
-  return '保持拉杆在手，用问题把焦点推回她承受的后果。';
+  return '保持拉杆在手，用问题把焦点推回对方承受的后果。';
 }
 
 function selectKeyMoments(
@@ -549,7 +551,7 @@ function selectKeyMoments(
     round: entry.round,
     quote: entry.text.slice(0, 100),
     analysis: hurt
-      ? '这句话把焦点拉回理由或触发限制，让黎岚更确信自己仍要独自消化后果。'
+      ? '这句话把焦点拉回理由或触发限制，让对方更确信自己仍要独自消化后果。'
       : helped
         ? '这句话提供了具体识别或可验证行动，关系状态因此出现实质变化。'
         : '这句话维持了对话，却缺少能让对方重新下注的具体信息。',

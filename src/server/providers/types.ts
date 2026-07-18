@@ -4,6 +4,7 @@ import type {
   EndingId,
   EndingTier,
   GameState,
+  ScenarioBriefing,
   StoryEvent,
   TranscriptEntry,
 } from '../../shared/contracts.js';
@@ -12,6 +13,7 @@ export type AgentName = 'director' | 'actor' | 'judge';
 export type ProviderKind = 'mock' | 'openai' | 'deepseek';
 
 export interface DirectorContext {
+  briefing: ScenarioBriefing;
   state: GameState;
   transcript: TranscriptEntry[];
   playerLine: string;
@@ -20,6 +22,7 @@ export interface DirectorContext {
 }
 
 export interface ActorContext {
+  briefing: ScenarioBriefing;
   state: GameState;
   transcript: TranscriptEntry[];
   playerLine: string;
@@ -28,6 +31,7 @@ export interface ActorContext {
 }
 
 export interface JudgeContext {
+  briefing: ScenarioBriefing;
   state: GameState;
   transcript: TranscriptEntry[];
   lockedEnding: {

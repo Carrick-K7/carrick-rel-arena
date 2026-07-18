@@ -151,6 +151,29 @@ describe('deterministic game engine', () => {
 });
 
 describe('mock three-agent session', () => {
+  it('creates the opposite-gender opponent with the selected player role', () => {
+    const service = new GameSessionService(
+      new GameAgents(new MockAiProvider()),
+      5,
+    );
+    const session = service.create('female');
+
+    expect(session.state.playerGender).toBe('female');
+    expect(session.state.opponentGender).toBe('male');
+    expect(session.briefing.player).toEqual({
+      gender: 'female',
+      age: 25,
+      role: '品牌策划',
+      experienceYears: 3,
+    });
+    expect(session.briefing.character).toMatchObject({
+      name: '周叙',
+      gender: 'male',
+      age: 25,
+      experienceYears: 3,
+    });
+  });
+
   it('plays a full high-quality path and produces an S verdict', async () => {
     const service = new GameSessionService(
       new GameAgents(new MockAiProvider()),

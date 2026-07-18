@@ -4,6 +4,7 @@ import {
   JudgeVerdictSchema,
   type DirectorDecision,
   type EndingId,
+  type Gender,
   type GameState,
   type JudgeVerdict,
 } from '../shared/contracts.js';
@@ -13,10 +14,15 @@ import {
   createForbiddenEvent,
 } from './scenario.js';
 
-export function createInitialState(sessionId: string): GameState {
+export function createInitialState(
+  sessionId: string,
+  playerGender: Gender = 'male',
+): GameState {
   return GameStateSchema.parse({
     sessionId,
     scenarioId: 'suitcase-at-one',
+    playerGender,
+    opponentGender: playerGender === 'male' ? 'female' : 'male',
     phase: 'awaiting_player',
     round: 0,
     maxRounds: 7,

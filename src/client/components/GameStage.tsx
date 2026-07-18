@@ -93,7 +93,10 @@ export function GameStage({
 
       <section className="arena-layout">
         <section className="character-stage">
-          <Portrait performance={lastPerformance} round={state.round} />
+          <Portrait
+            performance={lastPerformance}
+            character={briefing.character}
+          />
         </section>
 
         <section className="conversation-stage">
@@ -123,7 +126,7 @@ export function GameStage({
 
           <section className="latest-reply" aria-live="polite">
             <p className="latest-reply__meta">
-              <strong>黎岚</strong>
+              <strong>{briefing.character.name}</strong>
               <span>
                 {emotionLabel(lastPerformance.emotion)} ·{' '}
                 {toneLabel(lastPerformance.tone)}
@@ -167,7 +170,9 @@ export function GameStage({
                   className={`message message--${entry.speaker}`}
                 >
                   <span>
-                    {entry.speaker === 'player' ? '你' : '黎岚'}
+                    {entry.speaker === 'player'
+                      ? '你'
+                      : briefing.character.name}
                     {entry.round > 0 && ` · ${entry.round}`}
                   </span>
                   <p>{entry.text}</p>
@@ -181,7 +186,7 @@ export function GameStage({
               )}
               {busy && (
                 <article className="message message--thinking">
-                  <span>黎岚</span>
+                  <span>{briefing.character.name}</span>
                   <p>正在回应…</p>
                 </article>
               )}
@@ -191,7 +196,7 @@ export function GameStage({
           <p className="director-note" aria-live="polite">
             <span>局势</span>
             {directorSummary ??
-              '她在等你说出今晚真正落在她身上的东西。'}
+              '对方在等你说出今晚真正落在自己身上的东西。'}
           </p>
         </section>
       </section>

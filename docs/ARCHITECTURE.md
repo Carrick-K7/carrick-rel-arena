@@ -19,7 +19,7 @@ Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继�
 ```text
 React Client
   ├─ Briefing / Dialogue / Result
-  ├─ SVG Portrait Renderer
+  ├─ State-driven Portrait Renderer
   ├─ Speech input + TTS player
   └─ Share adapter
           │ HTTPS JSON / audio
@@ -125,6 +125,8 @@ type GamePhase =
 interface GameState {
   sessionId: string;
   scenarioId: 'suitcase-at-one';
+  playerGender: 'male' | 'female';
+  opponentGender: 'male' | 'female';
   phase: GamePhase;
   round: number;
   maxRounds: 7;
@@ -205,8 +207,8 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 |---|---|---|
 | GET | `/api/health` | 进程、Provider 与时间状态 |
 | GET | `/api/capabilities` | 文本模型、TTS、语音输入提示 |
-| GET | `/api/scenario` | 获取当前关卡简报 |
-| POST | `/api/sessions` | 创建新局并返回关卡简报与开场演出 |
+| GET | `/api/scenario?playerGender=male\|female` | 获取对应玩家身份与对手的关卡简报 |
+| POST | `/api/sessions` | 传入 `playerGender` 创建新局并返回对应开场演出 |
 | GET | `/api/sessions/:id` | 恢复当前内存会话 |
 | POST | `/api/sessions/:id/turns` | 提交玩家台词并完成一回合 |
 | POST | `/api/speech` | 把角色台词转换为 AI 音频 |
@@ -249,7 +251,9 @@ DeepSeek 文本方案搭配小米 MiMo、OpenAI TTS 或浏览器系统语音。�
 2. 回归评测和成本压力测试使用 DeepSeek V4 Flash。
 3. 每周对相同 30 条轨迹比较角色一致性、Schema 成功率、延迟和结局合理性。
 
-`TTS_PROVIDER=auto` 的启动选择顺序为 MiMo → OpenAI → 浏览器。运行中服务端 TTS 出错时，角色文字先正常展示，客户端捕获音频错误并调用 Web Speech API，不阻塞对话回合。图片继续使用代码内 SVG 动态立绘；视频接口保持 Hook 状态，未配置生成供应商时不发起请求。
+`TTS_PROVIDER=auto` 的启动选择顺序为 MiMo → OpenAI → 浏览器。运行中服务端 TTS 出错时，角色文字先正常展示，客户端捕获音频错误并调用 Web Speech API，不阻塞对话回合。男女角色分别读取独立音色变量。
+
+内容链条按“文字 → 立绘 → 语音 → 视频”逐层增强。文字状态机始终可运行；立绘随发布包提供；语音 Provider 缺失时回退浏览器；视频接口保持 Hook 状态，未配置生成供应商时不发起请求。
 
 ### `gpt-image-2` 使用边界
 
@@ -267,7 +271,7 @@ DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_to
 | 校验 | Zod 4 | 类型、输入校验和 JSON Schema 共用一个定义 |
 | 测试 | Vitest + Playwright | reducer 单测与完整交互路径分别覆盖 |
 | 会话 | 进程内 Map + TTL | 原型零运维；生产替换 Redis |
-| 立绘 | SVG + CSS Motion | 情绪驱动、体积小、可测试；数据协议可接 Live2D |
+| 立绘 | WebP + CSS Motion | 双角色、情绪状态切换、体积小；数据协议可接 Live2D |
 | 音频 | MiMo/OpenAI TTS + Web Speech fallback | 真实 AI 声音与无 Key 演示路径同时成立 |
 
 ## 10. 目录结构
@@ -322,10 +326,10 @@ relationship-arena/
 
 ### Phase 0：本次原型
 
-- 完成单场景、单角色、四结局。
+- 完成单场景、两种玩家身份、两位对应对手、四结局。
 - 完成三 Agent 接口、Mock、OpenAI、DeepSeek Provider。
 - 完成文本输入、可选语音输入、AI TTS、浏览器语音回退。
-- 完成 SVG 动态立绘、状态 HUD、结算复盘和分享文本。
+- 完成双角色动态立绘、状态 HUD、结算复盘和分享文本。
 - 完成逐局与逐日用量统计、价格估算、JSONL、Prometheus 与四类阈值告警。
 - 完成单元测试、生产构建与端到端测试。
 

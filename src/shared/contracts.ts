@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const GenderSchema = z.enum(['male', 'female']);
+
 export const GamePhaseSchema = z.enum([
   'briefing',
   'awaiting_player',
@@ -127,6 +129,8 @@ export const TranscriptEntrySchema = z.strictObject({
 export const GameStateSchema = z.strictObject({
   sessionId: z.string().uuid(),
   scenarioId: z.literal('suitcase-at-one'),
+  playerGender: GenderSchema,
+  opponentGender: GenderSchema,
   phase: GamePhaseSchema,
   round: z.number().int().min(0).max(7),
   maxRounds: z.literal(7),
@@ -183,10 +187,18 @@ export const ScenarioBriefingSchema = z.strictObject({
   timeAndPlace: z.string(),
   premise: z.string(),
   playerRole: z.string(),
-  character: z.strictObject({
-    name: z.string(),
-    age: z.number().int(),
+  player: z.strictObject({
+    gender: GenderSchema,
+    age: z.literal(25),
     role: z.string(),
+    experienceYears: z.literal(3),
+  }),
+  character: z.strictObject({
+    gender: GenderSchema,
+    name: z.string(),
+    age: z.literal(25),
+    role: z.string(),
+    experienceYears: z.literal(3),
     personality: z.string(),
   }),
   publicGoal: z.string(),
@@ -232,6 +244,10 @@ export const CreateSessionResponseSchema = z.strictObject({
   session: PublicSessionSchema,
 });
 
+export const CreateSessionInputSchema = z.strictObject({
+  playerGender: GenderSchema.default('male'),
+});
+
 export const TurnInputSchema = z.strictObject({
   text: z.string().trim().min(1).max(240),
 });
@@ -253,6 +269,7 @@ export const CapabilitiesSchema = z.strictObject({
 });
 
 export type GamePhase = z.infer<typeof GamePhaseSchema>;
+export type Gender = z.infer<typeof GenderSchema>;
 export type Emotion = z.infer<typeof EmotionSchema>;
 export type Tone = z.infer<typeof ToneSchema>;
 export type EndingId = z.infer<typeof EndingIdSchema>;

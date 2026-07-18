@@ -7,6 +7,7 @@ import {
   vi,
 } from 'vitest';
 import { createInitialState } from './engine.js';
+import { createBriefing } from './scenario.js';
 import { RemoteAiProvider } from './providers/remote.js';
 import type { ModelUsage } from './providers/types.js';
 import {
@@ -221,6 +222,7 @@ function request() {
       line: 'test',
     },
     context: {
+      briefing: createBriefing('male'),
       state: createInitialState(SESSION_ID),
       transcript: [],
       playerLine: '测试',

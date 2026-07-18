@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
   Capabilities,
+  Gender,
   PublicSession,
   ScenarioBriefing,
 } from '../shared/contracts.js';
@@ -25,7 +26,11 @@ type Screen = 'briefing' | 'playing' | 'result';
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('briefing');
-  const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
+  const [playerGender, setPlayerGender] = useState<Gender>('male');
+  const [briefings, setBriefings] = useState<Record<
+    Gender,
+    ScenarioBriefing
+  > | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
   const [draft, setDraft] = useState('');
@@ -41,10 +46,17 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getBriefing(), getCapabilities()])
-      .then(([nextBriefing, nextCapabilities]) => {
+    Promise.all([
+      getBriefing('male'),
+      getBriefing('female'),
+      getCapabilities(),
+    ])
+      .then(([maleBriefing, femaleBriefing, nextCapabilities]) => {
         if (!active) return;
-        setBriefing(nextBriefing);
+        setBriefings({
+          male: maleBriefing,
+          female: femaleBriefing,
+        });
         setCapabilities(nextCapabilities);
       })
       .catch((loadError: unknown) => {
@@ -62,13 +74,15 @@ export function App() {
     };
   }, []);
 
+  const briefing = briefings?.[playerGender] ?? null;
+
   async function beginGame() {
     setBusy(true);
     setError(null);
     setDirectorSummary(null);
     stopSpeaking();
     try {
-      const nextSession = await createSession();
+      const nextSession = await createSession(playerGender);
       setSession(nextSession);
       setScreen('playing');
       setDraft('');
@@ -77,6 +91,7 @@ export function App() {
         void speakLine(
           nextSession.lastPerformance.line,
           nextSession.lastPerformance.tone,
+          nextSession.briefing.character.gender,
           nextSession.state.sessionId,
         );
       }
@@ -107,6 +122,7 @@ export function App() {
         void speakLine(
           result.session.lastPerformance.line,
           result.session.lastPerformance.tone,
+          result.session.briefing.character.gender,
           result.session.state.sessionId,
         );
       }
@@ -132,6 +148,7 @@ export function App() {
       void speakLine(
         session.lastPerformance.line,
         session.lastPerformance.tone,
+        session.briefing.character.gender,
         session.state.sessionId,
       );
     }
@@ -204,7 +221,9 @@ export function App() {
       <Briefing
         briefing={briefing}
         capabilities={capabilities}
+        playerGender={playerGender}
         starting={busy}
+        onPlayerGenderChange={setPlayerGender}
         onStart={beginGame}
       />
       {error && (

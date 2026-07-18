@@ -1,5 +1,6 @@
 import type {
   Capabilities,
+  Gender,
   PublicSession,
   ScenarioBriefing,
   Tone,
@@ -29,18 +30,26 @@ export async function getCapabilities(): Promise<Capabilities> {
   return request<Capabilities>(`${API_BASE}/capabilities`);
 }
 
-export async function getBriefing(): Promise<ScenarioBriefing> {
+export async function getBriefing(
+  playerGender: Gender,
+): Promise<ScenarioBriefing> {
   const payload = await request<{ briefing: ScenarioBriefing }>(
-    `${API_BASE}/scenario`,
+    `${API_BASE}/scenario?playerGender=${playerGender}`,
   );
   return payload.briefing;
 }
 
-export async function createSession(): Promise<PublicSession> {
+export async function createSession(
+  playerGender: Gender,
+): Promise<PublicSession> {
   const payload = await request<{ session: PublicSession }>(
     `${API_BASE}/sessions`,
     {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ playerGender }),
     },
   );
   return payload.session;
@@ -65,6 +74,7 @@ export async function playTurn(
 export async function requestSpeech(
   text: string,
   tone: Tone,
+  speakerGender: Gender,
   sessionId: string | null,
 ): Promise<Blob | null> {
   const response = await fetch(`${API_BASE}/speech`, {
@@ -72,7 +82,7 @@ export async function requestSpeech(
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text, tone, sessionId }),
+    body: JSON.stringify({ text, tone, speakerGender, sessionId }),
   });
 
   if (response.status === 204) return null;

@@ -5,6 +5,7 @@ import {
   PublicSessionSchema,
   TranscriptEntrySchema,
   type ActorPerformance,
+  type Gender,
   type GameState,
   type JudgeVerdict,
   type PublicSession,
@@ -19,15 +20,16 @@ import {
   selectEnding,
 } from './engine.js';
 import {
-  BRIEFING,
   ENDING_CATALOG,
-  OPENING_EVENT,
-  OPENING_PERFORMANCE,
+  createBriefing,
   createEndingVideoEvent,
+  createOpeningEvent,
+  createOpeningPerformance,
 } from './scenario.js';
 import type { UsageTracker } from './usage.js';
 
 interface StoredSession {
+  briefing: PublicSession['briefing'];
   state: GameState;
   transcript: TranscriptEntry[];
   lastPerformance: ActorPerformance;
@@ -65,26 +67,29 @@ export class GameSessionService {
     return this.agents.providerKind;
   }
 
-  create(): PublicSession {
+  create(playerGender: Gender = 'male'): PublicSession {
     const sessionId = randomUUID();
     const now = new Date();
+    const briefing = createBriefing(playerGender);
+    const openingPerformance = createOpeningPerformance(briefing);
     const opening = TranscriptEntrySchema.parse({
       id: randomUUID(),
       speaker: 'character',
-      text: OPENING_PERFORMANCE.line,
+      text: openingPerformance.line,
       round: 0,
-      emotion: OPENING_PERFORMANCE.emotion,
-      tone: OPENING_PERFORMANCE.tone,
+      emotion: openingPerformance.emotion,
+      tone: openingPerformance.tone,
       createdAt: now.toISOString(),
     });
     const state = GameStateSchema.parse({
-      ...createInitialState(sessionId),
-      activeEvent: OPENING_EVENT,
+      ...createInitialState(sessionId, playerGender),
+      activeEvent: createOpeningEvent(briefing),
     });
     const stored: StoredSession = {
+      briefing,
       state,
       transcript: [opening],
-      lastPerformance: OPENING_PERFORMANCE,
+      lastPerformance: openingPerformance,
       verdict: null,
       expiresAt: new Date(now.getTime() + this.ttlMs),
       locked: false,
@@ -108,7 +113,7 @@ export class GameSessionService {
     }
     if (stored.locked) {
       throw new SessionError(
-        '黎岚还在消化上一句话。',
+        `${stored.briefing.character.name}还在消化上一句话。`,
         409,
         'TURN_IN_PROGRESS',
       );
@@ -130,6 +135,7 @@ export class GameSessionService {
       const workingTranscript = [...stored.transcript, playerEntry];
 
       const rawDecision = await this.agents.direct({
+        briefing: stored.briefing,
         state: {
           ...stored.state,
           phase: 'directing',
@@ -148,6 +154,7 @@ export class GameSessionService {
       );
       const performance = ActorPerformanceSchema.parse({
         ...(await this.agents.act({
+          briefing: stored.briefing,
           state: applied.state,
           transcript: workingTranscript,
           playerLine,
@@ -181,9 +188,11 @@ export class GameSessionService {
           activeEvent: createEndingVideoEvent(
             ending,
             applied.state.sessionId,
+            stored.briefing,
           ),
         });
         const rawVerdict = await this.agents.judge({
+          briefing: stored.briefing,
           state: nextState,
           transcript: workingTranscript,
           lockedEnding: {
@@ -234,7 +243,7 @@ export class GameSessionService {
 
   private toPublic(stored: StoredSession): PublicSession {
     return PublicSessionSchema.parse({
-      briefing: BRIEFING,
+      briefing: stored.briefing,
       state: stored.state,
       transcript: stored.transcript,
       lastPerformance: stored.lastPerformance,

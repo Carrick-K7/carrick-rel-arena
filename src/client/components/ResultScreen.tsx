@@ -56,7 +56,7 @@ export function ResultScreen({
         <div className="result-portrait">
           <Portrait
             performance={session.lastPerformance}
-            round={session.state.round}
+            character={session.briefing.character}
             compact
           />
         </div>

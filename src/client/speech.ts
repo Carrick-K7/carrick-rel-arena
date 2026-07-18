@@ -1,4 +1,4 @@
-import type { Tone } from '../shared/contracts.js';
+import type { Gender, Tone } from '../shared/contracts.js';
 import { requestSpeech } from './api.js';
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -7,12 +7,18 @@ let currentUrl: string | null = null;
 export async function speakLine(
   text: string,
   tone: Tone,
+  speakerGender: Gender,
   sessionId: string | null,
 ): Promise<void> {
   stopSpeaking();
 
   try {
-    const audioBlob = await requestSpeech(text, tone, sessionId);
+    const audioBlob = await requestSpeech(
+      text,
+      tone,
+      speakerGender,
+      sessionId,
+    );
     if (audioBlob) {
       currentUrl = URL.createObjectURL(audioBlob);
       currentAudio = new Audio(currentUrl);
@@ -30,7 +36,7 @@ export async function speakLine(
     releaseAudio();
   }
 
-  speakWithBrowser(text, tone);
+  speakWithBrowser(text, tone, speakerGender);
 }
 
 export function stopSpeaking(): void {
@@ -50,13 +56,23 @@ function releaseAudio() {
   }
 }
 
-function speakWithBrowser(text: string, tone: Tone) {
+function speakWithBrowser(
+  text: string,
+  tone: Tone,
+  speakerGender: Gender,
+) {
   if (!('speechSynthesis' in window)) return;
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
   utterance.rate =
     tone === 'sharp' ? 1.06 : tone === 'shaky' || tone === 'quiet' ? 0.9 : 0.96;
-  utterance.pitch = tone === 'icy' ? 0.9 : tone === 'soft' ? 1.02 : 0.96;
+  const genderPitch = speakerGender === 'male' ? 0.86 : 1.02;
+  utterance.pitch =
+    tone === 'icy'
+      ? genderPitch - 0.04
+      : tone === 'soft'
+        ? genderPitch + 0.03
+        : genderPitch;
   const voices = window.speechSynthesis.getVoices();
   const chineseVoice = voices.find((voice) =>
     voice.lang.toLowerCase().startsWith('zh'),

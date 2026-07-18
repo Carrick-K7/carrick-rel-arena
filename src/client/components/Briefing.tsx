@@ -1,6 +1,7 @@
 import type {
   ActorPerformance,
   Capabilities,
+  Gender,
   ScenarioBriefing,
 } from '../../shared/contracts.js';
 import { Portrait } from './Portrait.js';
@@ -8,7 +9,9 @@ import { Portrait } from './Portrait.js';
 interface BriefingProps {
   briefing: ScenarioBriefing;
   capabilities: Capabilities | null;
+  playerGender: Gender;
   starting: boolean;
+  onPlayerGenderChange: (gender: Gender) => void;
   onStart: () => void;
 }
 
@@ -24,7 +27,7 @@ const previewPerformance: ActorPerformance = {
   action: {
     pose: 'holding-handle',
     gesture: 'checks-phone',
-    stageDirection: '她已经把车叫好了。',
+    stageDirection: '对方已经把车叫好了。',
   },
   stateChanges: {
     trust: 0,
@@ -37,7 +40,9 @@ const previewPerformance: ActorPerformance = {
 export function Briefing({
   briefing,
   capabilities,
+  playerGender,
   starting,
+  onPlayerGenderChange,
   onStart,
 }: BriefingProps) {
   return (
@@ -85,9 +90,41 @@ export function Briefing({
           <p className="character-dossier">
             <strong>{briefing.character.name}，{briefing.character.age} 岁</strong>
             <span>
-              {briefing.character.role} · {briefing.character.personality}
+              {briefing.character.role} · 职场第{' '}
+              {briefing.character.experienceYears} 年 ·{' '}
+              {briefing.character.personality}
             </span>
           </p>
+
+          <fieldset className="role-picker">
+            <legend>选择你要扮演的角色</legend>
+            <div>
+              <button
+                type="button"
+                className={playerGender === 'male' ? 'is-selected' : ''}
+                onClick={() => onPlayerGenderChange('male')}
+                aria-pressed={playerGender === 'male'}
+                data-testid="choose-male"
+              >
+                <strong>扮演男生</strong>
+                <span>25 岁 · 品牌策划 · 职场第 3 年</span>
+              </button>
+              <button
+                type="button"
+                className={playerGender === 'female' ? 'is-selected' : ''}
+                onClick={() => onPlayerGenderChange('female')}
+                aria-pressed={playerGender === 'female'}
+                data-testid="choose-female"
+              >
+                <strong>扮演女生</strong>
+                <span>25 岁 · 品牌策划 · 职场第 3 年</span>
+              </button>
+            </div>
+            <p>
+              对手：{briefing.character.name} ·{' '}
+              {briefing.character.gender === 'female' ? '女生' : '男生'}
+            </p>
+          </fieldset>
 
           <div className="briefing-actions">
             <button
@@ -104,10 +141,13 @@ export function Briefing({
         </div>
 
         <div className="briefing-visual">
-          <Portrait performance={previewPerformance} round={0} />
+          <Portrait
+            performance={previewPerformance}
+            character={briefing.character}
+          />
           <blockquote>
             “你有七句话。挑几句真的。”
-            <span>— 黎岚</span>
+            <span>— {briefing.character.name}</span>
           </blockquote>
         </div>
       </section>

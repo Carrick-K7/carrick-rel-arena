@@ -10,7 +10,7 @@ This repository is designed for autonomous AI development.
 - Maintain a complete mock provider so contributors and CI can play the whole game without paid API access.
 - Keep provider secrets on the server.
 - Treat server state as canonical. Model-proposed state changes pass through deterministic validation and clamping.
-- Use code-native SVG portrait animation for the prototype. Live2D is an adapter milestone.
+- Use repository-owned WebP portrait states with lightweight CSS motion. Live2D is an adapter milestone.
 - Reserve video generation for opening, turning-point, and ending hooks.
 
 ## Verification

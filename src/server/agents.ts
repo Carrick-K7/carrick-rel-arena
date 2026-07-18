@@ -7,11 +7,11 @@ import {
   type JudgeVerdict,
 } from '../shared/contracts.js';
 import {
-  ACTOR_SYSTEM_PROMPT,
+  createActorSystemPrompt,
   DIRECTOR_SYSTEM_PROMPT,
   JUDGE_SYSTEM_PROMPT,
 } from './prompts.js';
-import { SCENARIO_FACTS } from './scenario.js';
+import { createScenarioFacts } from './scenario.js';
 import type {
   ActorContext,
   AiProvider,
@@ -44,7 +44,7 @@ export class GameAgents {
       schema: DirectorDecisionSchema,
       system: DIRECTOR_SYSTEM_PROMPT,
       input: {
-        scenarioFacts: SCENARIO_FACTS,
+        scenarioFacts: createScenarioFacts(context.briefing),
         currentState: context.state,
         recentTranscript: context.transcript.slice(-6),
         playerLine: context.playerLine,
@@ -61,8 +61,9 @@ export class GameAgents {
       agent: 'actor',
       schemaName: 'actor_performance',
       schema: ActorPerformanceSchema,
-      system: ACTOR_SYSTEM_PROMPT,
+      system: createActorSystemPrompt(context.briefing.character),
       input: {
+        character: context.briefing.character,
         directorBrief: context.director.actorBrief,
         stateAfterDirector: context.state,
         latestPlayerLine: context.playerLine,
@@ -85,9 +86,9 @@ export class GameAgents {
         lockedEnding: context.lockedEnding,
         finalState: context.state,
         goals: {
-          public: '让黎岚愿意留下吃明早的早餐',
+          public: context.briefing.publicGoal,
           hidden:
-            '准确看见她在家人面前被晾下的难堪，并提出可验证的共同修复行动',
+            '准确看见对方在家人面前被晾下的难堪，并提出可验证的共同修复行动',
           restriction: '全局禁用直接道歉表达',
         },
         transcript: context.transcript,

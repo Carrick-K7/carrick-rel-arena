@@ -27,6 +27,8 @@ describe('TTS provider configuration', () => {
       apiKey: 'test-mimo-key',
       model: 'mimo-v2.5-tts',
       voice: '冰糖',
+      maleVoice: '白桦',
+      femaleVoice: '冰糖',
       baseUrl: 'https://api.xiaomimimo.com/v1',
     });
   });
@@ -41,6 +43,8 @@ describe('TTS provider configuration', () => {
       apiKey: null,
       model: 'web-speech-api',
       voice: 'system-default',
+      maleVoice: 'system-default',
+      femaleVoice: 'system-default',
       baseUrl: '',
     });
   });
@@ -73,12 +77,15 @@ describe('MiMo speech synthesis', () => {
       apiKey: 'test-mimo-key',
       model: 'mimo-v2.5-tts',
       voice: '冰糖',
+      maleVoice: '白桦',
+      femaleVoice: '冰糖',
       baseUrl: 'https://mimo.invalid/v1',
     };
     const result = await synthesizeSpeech(
       config,
       '行李箱可以先留下。',
       'soft',
+      'male',
     );
 
     expect(result).toMatchObject({
@@ -112,7 +119,7 @@ describe('MiMo speech synthesis', () => {
       ],
       audio: {
         format: 'wav',
-        voice: '冰糖',
+        voice: '白桦',
       },
       stream: false,
     });

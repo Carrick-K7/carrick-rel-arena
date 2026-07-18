@@ -1,4 +1,4 @@
-import type { Tone } from '../shared/contracts.js';
+import type { Gender, Tone } from '../shared/contracts.js';
 
 const TONE_INSTRUCTIONS: Record<Tone, string> = {
   icy: '用克制、冰冷、低音量的中文语气说，停顿清楚。',
@@ -14,6 +14,8 @@ export interface TtsConfig {
   apiKey: string | null;
   model: string;
   voice: string;
+  maleVoice: string;
+  femaleVoice: string;
   baseUrl: string;
 }
 
@@ -46,6 +48,12 @@ export function readTtsConfig(): TtsConfig {
       model:
         process.env.MIMO_TTS_MODEL?.trim() || 'mimo-v2.5-tts',
       voice: process.env.MIMO_TTS_VOICE?.trim() || '冰糖',
+      maleVoice:
+        process.env.MIMO_TTS_MALE_VOICE?.trim() || '白桦',
+      femaleVoice:
+        process.env.MIMO_TTS_FEMALE_VOICE?.trim() ||
+        process.env.MIMO_TTS_VOICE?.trim() ||
+        '冰糖',
       baseUrl:
         process.env.MIMO_BASE_URL?.trim() ||
         'https://api.xiaomimimo.com/v1',
@@ -61,6 +69,12 @@ export function readTtsConfig(): TtsConfig {
       apiKey: openAiApiKey,
       model: process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts',
       voice: process.env.OPENAI_TTS_VOICE?.trim() || 'marin',
+      maleVoice:
+        process.env.OPENAI_TTS_MALE_VOICE?.trim() || 'cedar',
+      femaleVoice:
+        process.env.OPENAI_TTS_FEMALE_VOICE?.trim() ||
+        process.env.OPENAI_TTS_VOICE?.trim() ||
+        'marin',
       baseUrl:
         process.env.OPENAI_BASE_URL?.trim() ||
         'https://api.openai.com/v1',
@@ -72,6 +86,8 @@ export function readTtsConfig(): TtsConfig {
     apiKey: null,
     model: 'web-speech-api',
     voice: 'system-default',
+    maleVoice: 'system-default',
+    femaleVoice: 'system-default',
     baseUrl: '',
   };
 }
@@ -80,13 +96,14 @@ export async function synthesizeSpeech(
   config: TtsConfig,
   text: string,
   tone: Tone,
+  speakerGender?: Gender,
 ): Promise<TtsResult | null> {
   if (!config.apiKey) return null;
   if (config.provider === 'mimo') {
-    return synthesizeMiMo(config, text, tone);
+    return synthesizeMiMo(config, text, tone, speakerGender);
   }
   if (config.provider === 'openai') {
-    return synthesizeOpenAi(config, text, tone);
+    return synthesizeOpenAi(config, text, tone, speakerGender);
   }
   return null;
 }
@@ -95,6 +112,7 @@ async function synthesizeOpenAi(
   config: TtsConfig,
   text: string,
   tone: Tone,
+  speakerGender?: Gender,
 ): Promise<TtsResult> {
   const response = await fetch(`${config.baseUrl}/audio/speech`, {
     method: 'POST',
@@ -104,7 +122,7 @@ async function synthesizeOpenAi(
     },
     body: JSON.stringify({
       model: config.model,
-      voice: config.voice,
+      voice: selectVoice(config, speakerGender),
       input: text,
       instructions: TONE_INSTRUCTIONS[tone],
       response_format: 'mp3',
@@ -144,6 +162,7 @@ async function synthesizeMiMo(
   config: TtsConfig,
   text: string,
   tone: Tone,
+  speakerGender?: Gender,
 ): Promise<TtsResult> {
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
@@ -165,7 +184,7 @@ async function synthesizeMiMo(
       ],
       audio: {
         format: 'wav',
-        voice: config.voice,
+        voice: selectVoice(config, speakerGender),
       },
       stream: false,
     }),
@@ -202,4 +221,13 @@ async function synthesizeMiMo(
     provider: 'mimo',
     model: config.model,
   };
+}
+
+function selectVoice(
+  config: TtsConfig,
+  speakerGender: Gender | undefined,
+): string {
+  if (speakerGender === 'male') return config.maleVoice;
+  if (speakerGender === 'female') return config.femaleVoice;
+  return config.voice;
 }
