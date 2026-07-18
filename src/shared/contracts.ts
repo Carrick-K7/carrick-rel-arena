@@ -347,6 +347,7 @@ export const ScenarioBriefingSchema = z.strictObject({
   playerRole: z.string(),
   player: z.strictObject({
     gender: GenderSchema,
+    name: z.string(),
     age: z.literal(25),
     role: z.string(),
     experienceYears: z.literal(3),

@@ -112,12 +112,14 @@ test('enters and leaves a briefing and supports both player identities', async (
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '提案被否',
   );
-  await expect(page.getByText('黎岚，25 岁')).toBeVisible();
-  await expect(page.locator('img[alt^="黎岚"]')).toBeVisible();
+  await expect(page.getByText('秋雾，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="秋雾"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /扮演徐坤/ })).toBeVisible();
 
   await page.getByTestId('choose-female').click();
-  await expect(page.getByText('周叙，25 岁')).toBeVisible();
-  await expect(page.locator('img[alt^="周叙"]')).toBeVisible();
+  await expect(page.getByText('徐坤，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="徐坤"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: /扮演秋雾/ })).toBeVisible();
 
   await page.getByTestId('back-to-levels').click();
   await expect(page.getByTestId('scenario-card-rejected-proposal')).toBeVisible();

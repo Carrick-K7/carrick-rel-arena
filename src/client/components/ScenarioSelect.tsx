@@ -99,7 +99,7 @@ export function ScenarioSelect({
         <p className="eyebrow">八次对话 · 八种靠近</p>
         <h1>把关系练成<br />两个人的功课</h1>
         <p>
-          黎岚与周叙从第一次邀约走到下一年的家。每关独立结算，
+          秋雾与徐坤从第一次邀约走到下一年的家。每关独立结算，
           所有关卡都可以直接开始。
         </p>
       </section>

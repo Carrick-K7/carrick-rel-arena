@@ -17,7 +17,7 @@ import {
 const OPPONENTS = {
   female: {
     gender: 'female',
-    name: '黎岚',
+    name: '秋雾',
     age: 25,
     role: '产品经理',
     experienceYears: 3,
@@ -25,7 +25,7 @@ const OPPONENTS = {
   },
   male: {
     gender: 'male',
-    name: '周叙',
+    name: '徐坤',
     age: 25,
     role: '程序员',
     experienceYears: 3,
@@ -858,6 +858,7 @@ export function createBriefing(
 ): ScenarioBriefing {
   const definition = getScenarioDefinition(scenarioId);
   const opponentGender = playerGender === 'male' ? 'female' : 'male';
+  const player = OPPONENTS[playerGender];
   const character = OPPONENTS[opponentGender];
   return ScenarioBriefingSchema.parse({
     id: definition.id,
@@ -869,9 +870,10 @@ export function createBriefing(
     timeAndPlace: definition.timeAndPlace,
     premise: interpolate(definition.premise, character),
     playerRole:
-      `${character.name}的伴侣，25 岁的${PLAYER_ROLES[playerGender]}，进入职场第 3 年。`,
+      `${player.name}，${character.name}的伴侣，25 岁的${PLAYER_ROLES[playerGender]}，进入职场第 3 年。`,
     player: {
       gender: playerGender,
+      name: player.name,
       age: 25,
       role: PLAYER_ROLES[playerGender],
       experienceYears: 3,
@@ -888,7 +890,7 @@ export function createScenarioFacts(briefing: ScenarioBriefing): string {
   return `
 关卡：第 ${definition.number} 关《${definition.title}》
 时间地点：${definition.timeAndPlace}
-双方设定：玩家与${briefing.character.name}都是 25 岁、职场第 3 年；玩家是${briefing.player.role}，${briefing.character.name}是${briefing.character.role}。
+双方设定：${briefing.player.name}与${briefing.character.name}都是 25 岁、职场第 3 年；${briefing.player.name}是${briefing.player.role}，${briefing.character.name}是${briefing.character.role}。玩家扮演${briefing.player.name}。
 已发生：${interpolate(definition.facts, briefing.character)}
 本关唯一目标：${definition.goal}
 角色关注：${interpolate(definition.characterFocus, briefing.character)}

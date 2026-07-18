@@ -54,10 +54,10 @@ function portraitImage(
   gender: ScenarioBriefing['character']['gender'],
   emotion: ActorPerformance['emotion'],
 ): string {
-  if (gender === 'male') return 'zhou-xu-guarded.webp';
+  if (gender === 'male') return 'xu-kun-guarded.webp';
   return emotion === 'softening' || emotion === 'warm'
-    ? 'li-lan-soft.webp'
-    : 'li-lan-guarded.webp';
+    ? 'qiu-wu-soft.webp'
+    : 'qiu-wu-guarded.webp';
 }
 
 function emotionLabel(emotion: ActorPerformance['emotion']): string {

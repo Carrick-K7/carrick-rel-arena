@@ -111,7 +111,7 @@ export function Briefing({
                   aria-pressed={playerGender === 'male'}
                   data-testid="choose-male"
                 >
-                  <strong>扮演男生</strong>
+                  <strong>扮演徐坤</strong>
                   <span>25 岁 · 程序员 · 职场第 3 年</span>
                 </button>
                 <button
@@ -121,7 +121,7 @@ export function Briefing({
                   aria-pressed={playerGender === 'female'}
                   data-testid="choose-female"
                 >
-                  <strong>扮演女生</strong>
+                  <strong>扮演秋雾</strong>
                   <span>25 岁 · 产品经理 · 职场第 3 年</span>
                 </button>
               </div>

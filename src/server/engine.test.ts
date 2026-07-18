@@ -84,14 +84,24 @@ describe('typed scenario catalog', () => {
       const male = createBriefing(scenarioId, 'male');
       const female = createBriefing(scenarioId, 'female');
       expect(male.character).toMatchObject({
-        name: '黎岚',
+        name: '秋雾',
         gender: 'female',
         role: '产品经理',
       });
-      expect(female.character).toMatchObject({
-        name: '周叙',
+      expect(male.player).toMatchObject({
+        name: '徐坤',
         gender: 'male',
         role: '程序员',
+      });
+      expect(female.character).toMatchObject({
+        name: '徐坤',
+        gender: 'male',
+        role: '程序员',
+      });
+      expect(female.player).toMatchObject({
+        name: '秋雾',
+        gender: 'female',
+        role: '产品经理',
       });
       expect(male.maxRounds).toBe(
         getScenarioDefinition(scenarioId).maxRounds,
@@ -238,7 +248,7 @@ describe('mock three-agent sessions', () => {
     ).session;
 
     expect(updated.state.round).toBe(1);
-    expect(updated.briefing.character.name).toBe('周叙');
+    expect(updated.briefing.character.name).toBe('徐坤');
     expect(updated.transcript.at(-2)?.text).toContain('对不起');
     expect(second.state.round).toBe(0);
     expect(second.transcript).toHaveLength(1);
