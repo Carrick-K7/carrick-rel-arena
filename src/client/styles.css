@@ -1,8 +1,12 @@
 :root {
   color-scheme: light;
-  font-family:
+  --font-sans:
     Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif:
+    Georgia, "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC",
+    "STSong", "SimSun", serif;
+  font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   --paper: #f4fbfa;
@@ -28,6 +32,27 @@
   --shadow-2:
     0 2px 6px rgba(30, 56, 53, 0.06), 0 16px 40px rgba(30, 56, 53, 0.1);
   --shadow-3: 0 28px 80px rgba(21, 48, 45, 0.25);
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-md: 14px;
+  --text-lg: 15.5px;
+  --text-xl: 17px;
+  --text-2xl: 20px;
+  --text-3xl: 26px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 28px;
+  --sp-7: 40px;
+  --sp-8: 56px;
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.32, 0.4, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 360ms;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 * {
@@ -69,8 +94,8 @@ a {
 button:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(57, 197, 187, 0.32);
-  outline-offset: 3px;
+  outline: 0;
+  box-shadow: var(--focus-ring);
 }
 
 button {
@@ -94,7 +119,7 @@ figure {
 .briefing-screen,
 .game-screen,
 .result-screen {
-  animation: screen-in 340ms cubic-bezier(0.22, 0.8, 0.32, 1) both;
+  animation: screen-in var(--dur-3) var(--ease-out) both;
 }
 
 @keyframes screen-in {
@@ -102,6 +127,87 @@ figure {
     opacity: 0;
     transform: translateY(8px);
   }
+}
+
+/* Entrance choreography & press feedback */
+
+.scenario-card {
+  animation: card-in var(--dur-3) var(--ease-out) backwards;
+}
+
+.scenario-card:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.scenario-card:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.scenario-card:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.scenario-card:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.scenario-card:nth-child(6) {
+  animation-delay: 200ms;
+}
+
+.scenario-card:nth-child(7) {
+  animation-delay: 240ms;
+}
+
+.scenario-card:nth-child(8) {
+  animation-delay: 280ms;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.message {
+  animation: message-in var(--dur-3) var(--ease-out) both;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.result-grade {
+  animation: grade-in var(--dur-3) var(--ease-spring) both;
+}
+
+@keyframes grade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.start-button:active,
+.back-button:active,
+.send-button:active,
+.utility-button:active,
+.share-button:active,
+.replay-button:active,
+.levels-button:active,
+.filter-group button:active,
+.role-picker button:active,
+.modality-option:active,
+.settings-trigger:active {
+  transform: scale(0.97);
+}
+
+.scenario-card:active {
+  transform: scale(0.99);
 }
 
 .brand {
@@ -127,7 +233,7 @@ figure {
   border-radius: 50%;
   color: #fff;
   background: var(--accent);
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 20px;
 }
 
@@ -137,7 +243,7 @@ figure {
 }
 
 .brand b {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 17px;
   letter-spacing: 0.03em;
 }
@@ -219,7 +325,7 @@ figure {
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--shadow-3);
-  animation: panel-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  animation: panel-in var(--dur-3) var(--ease-spring) both;
 }
 
 @keyframes panel-in {
@@ -246,7 +352,7 @@ figure {
 
 .settings-header h1 {
   margin-top: 4px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 30px;
   font-weight: 600;
 }
@@ -273,7 +379,7 @@ figure {
 
 .modality-group legend {
   padding: 0;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 19px;
   font-weight: 700;
 }
@@ -310,10 +416,10 @@ figure {
   cursor: pointer;
   text-align: left;
   transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
 }
 
 .modality-option:hover {
@@ -382,7 +488,7 @@ figure {
 }
 
 .media-unlock strong {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 16px;
 }
 
@@ -482,11 +588,11 @@ figure {
 }
 
 .level-intro h1 {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: clamp(44px, 5vw, 68px);
   font-weight: 500;
   line-height: 1.14;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.01em;
 }
 
 .level-intro > p:last-child {
@@ -570,9 +676,9 @@ figure {
   cursor: pointer;
   text-align: left;
   transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
 }
 
 .scenario-card:hover {
@@ -594,7 +700,7 @@ figure {
   top: 23px;
   right: 26px;
   color: #b7dcd7;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 44px;
   line-height: 1;
 }
@@ -646,7 +752,7 @@ figure {
 .scenario-card > strong {
   max-width: 470px;
   margin-top: 22px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 23px;
   font-weight: 600;
   line-height: 1.45;
@@ -786,16 +892,16 @@ figure {
   color: var(--accent);
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .briefing-copy h1 {
   max-width: 720px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: clamp(44px, 4.5vw, 64px);
   font-weight: 600;
   line-height: 1.12;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
@@ -826,7 +932,7 @@ figure {
 }
 
 .briefing-section h2 {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.5;
@@ -882,9 +988,9 @@ figure {
   cursor: pointer;
   text-align: left;
   transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 
 .role-picker button:hover {
@@ -957,9 +1063,9 @@ figure {
   font-size: 16px;
   font-weight: 700;
   transition:
-    background 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
 }
 
 .back-button {
@@ -1029,7 +1135,7 @@ figure {
   border-radius: 14px;
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 20px;
   line-height: 1.55;
 }
@@ -1142,8 +1248,8 @@ figure {
   object-fit: cover;
   object-position: center top;
   transition:
-    filter 500ms ease,
-    transform 700ms ease;
+    filter 500ms var(--ease-out),
+    transform 700ms var(--ease-out);
 }
 
 .emotion-angry .portrait__image,
@@ -1209,14 +1315,14 @@ figure {
 }
 
 .portrait__identity strong {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 14px;
 }
 
 .portrait__identity small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .portrait figcaption {
@@ -1228,7 +1334,7 @@ figure {
   color: var(--muted);
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -1278,7 +1384,7 @@ figure {
 }
 
 .scene-title strong {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 17px;
 }
 
@@ -1294,7 +1400,7 @@ figure {
 .rounds b {
   display: inline-block;
   color: var(--accent);
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 30px;
   font-weight: 500;
 }
@@ -1371,7 +1477,6 @@ figure {
   display: grid;
   gap: 24px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
   grid-template-columns: 1fr 1fr;
 }
 
@@ -1402,7 +1507,7 @@ figure {
   display: block;
   height: 100%;
   border-radius: var(--r-pill);
-  transition: width 650ms ease;
+  transition: width 650ms var(--ease-out);
 }
 
 .gauge--warmth .gauge__track span {
@@ -1438,10 +1543,18 @@ figure {
 
 .latest-reply h1 {
   margin-top: 11px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: clamp(24px, 2.3vw, 34px);
   font-weight: 500;
   line-height: 1.55;
+}
+
+.latest-reply h1,
+.briefing-visual blockquote,
+.result-title blockquote,
+.review-list blockquote,
+.epilogue p {
+  hanging-punctuation: first;
 }
 
 .delta-row {
@@ -1456,7 +1569,7 @@ figure {
   border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 700;
-  animation: delta-pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  animation: delta-pop var(--dur-3) var(--ease-spring) both;
 }
 
 .delta--good {
@@ -1494,7 +1607,7 @@ figure {
 }
 
 .story-event strong {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 16px;
 }
 
@@ -1596,7 +1709,7 @@ figure {
 .generated-media--mock-video strong {
   display: block;
   margin-top: 18px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 23px;
 }
 
@@ -1628,7 +1741,7 @@ figure {
 }
 
 .panel-heading > span {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 17px;
   font-weight: 700;
 }
@@ -1713,7 +1826,6 @@ figure {
   margin-top: 4px;
   padding-top: 11px;
   padding-left: 12px;
-  border-top: 1px solid var(--line);
   border-left: 3px solid rgba(36, 157, 148, 0.45);
   color: var(--muted);
   font-size: 13px;
@@ -1740,8 +1852,8 @@ figure {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr;
   transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 
 .composer:focus-within {
@@ -1806,9 +1918,9 @@ figure {
   font-size: 13px;
   font-weight: 600;
   transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
 }
 
 .utility-button {
@@ -1904,7 +2016,7 @@ figure {
 
 .result-grade {
   color: #93a5a1;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 108px;
   font-style: italic;
   line-height: 1;
@@ -1932,7 +2044,7 @@ figure {
 
 .result-title h1 {
   margin-top: 8px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: clamp(44px, 5vw, 68px);
   font-weight: 500;
   line-height: 1.12;
@@ -1950,7 +2062,7 @@ figure {
   max-width: 540px;
   margin-top: 22px;
   color: var(--muted);
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 18px;
   line-height: 1.65;
 }
@@ -1990,7 +2102,7 @@ figure {
 }
 
 .epilogue p {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 20px;
   line-height: 1.85;
 }
@@ -2018,7 +2130,7 @@ figure {
 
 .score-card__number strong {
   color: var(--accent);
-  font-family: Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 60px;
   font-weight: 400;
 }
@@ -2067,7 +2179,7 @@ figure {
 
 .goal-results h2,
 .review-heading h2 {
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 22px;
 }
 
@@ -2183,7 +2295,7 @@ figure {
 .review-list blockquote {
   max-width: 85%;
   margin-top: 12px;
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 18px;
   line-height: 1.65;
 }
@@ -2212,11 +2324,11 @@ figure {
   font-size: 14px;
   font-weight: 700;
   transition:
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease,
-    transform 160ms ease;
+    border-color var(--dur-2) var(--ease-out),
+    background var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
 }
 
 .share-button {
@@ -2272,6 +2384,7 @@ figure {
 }
 
 .loading-mark {
+  position: relative;
   display: grid;
   width: 64px;
   height: 64px;
@@ -2279,9 +2392,35 @@ figure {
   border-radius: 50%;
   color: #fff;
   background: var(--accent);
-  font-family: Georgia, "Songti SC", "STSong", serif;
+  font-family: var(--font-serif);
   font-size: 30px;
-  animation: loading-mark 1.8s ease-in-out infinite;
+}
+
+.loading-mark::before,
+.loading-mark::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: loading-ring 1.8s var(--ease-out) infinite;
+}
+
+.loading-mark::after {
+  animation-delay: 0.9s;
+}
+
+@keyframes loading-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
 }
 
 .loading-screen p {
@@ -2292,14 +2431,9 @@ figure {
 .loading-screen button {
   padding: 10px 15px;
   border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   background: #fff;
   cursor: pointer;
-}
-
-@keyframes loading-mark {
-  50% {
-    transform: scale(1.04);
-  }
 }
 
 /* Responsive */

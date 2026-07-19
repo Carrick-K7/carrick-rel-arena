@@ -12,6 +12,7 @@ This repository is designed for autonomous AI development.
 - Treat server state as canonical. Model-proposed state changes pass through deterministic validation and clamping.
 - Use repository-owned WebP portrait states with lightweight CSS motion. Live2D is an adapter milestone.
 - Reserve video generation for opening, turning-point, and ending hooks.
+- Treat `docs/DESIGN.md` as the single source of truth for the frontend design system; update it alongside any token, motion, or component-pattern change.
 
 ## Verification
 
