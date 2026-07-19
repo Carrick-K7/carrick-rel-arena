@@ -3883,8 +3883,8 @@ figure {
   margin: 0;
 }
 
-.opponent-visual__main > .generated-media img,
-.opponent-visual__main > .generated-media video {
+.opponent-visual__main > .generated-media > img,
+.opponent-visual__main > .generated-media > video {
   width: 100%;
   height: calc(100% - 48px);
   max-height: none;
@@ -3917,11 +3917,11 @@ figure {
   content: '';
   position: absolute;
   z-index: 1;
-  inset: 42% 0 0;
+  inset: 54% 0 0;
   background: linear-gradient(
     to bottom,
     transparent,
-    rgba(12, 31, 29, 0.76)
+    rgba(12, 31, 29, 0.42)
   );
   pointer-events: none;
 }
@@ -3933,39 +3933,87 @@ figure {
   bottom: 14px;
   left: 16px;
   display: grid;
-  gap: 7px;
-  color: #fff;
-  text-shadow: 0 1px 9px rgba(0, 0, 0, 0.42);
+  gap: 9px;
+  pointer-events: none;
 }
 
-.memory-frame__dialogue p {
+.memory-frame__bubble {
+  position: relative;
+  width: fit-content;
+  max-width: min(88%, 320px);
+  padding: 8px 12px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 15px;
+  box-shadow:
+    0 5px 18px rgba(12, 31, 29, 0.2),
+    0 1px 3px rgba(12, 31, 29, 0.14);
+  backdrop-filter: blur(10px);
+}
+
+.memory-frame__bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.62);
+  transform: rotate(45deg);
+}
+
+.memory-frame__bubble > span {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.memory-frame__bubble > p {
   display: -webkit-box;
   overflow: hidden;
   margin: 0;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   font-size: clamp(12px, 1vw, 14px);
-  line-height: 1.55;
+  line-height: 1.48;
 }
 
-.memory-frame__dialogue p > span {
-  margin-right: 7px;
-  color: #9cf3eb;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.memory-frame__player {
+.memory-frame__bubble--player {
   justify-self: end;
-  max-width: 90%;
+  color: #fff;
+  border-bottom-right-radius: 5px;
+  background: rgba(20, 132, 123, 0.92);
   font-family: var(--font-sans);
-  text-align: right;
 }
 
-.memory-frame__character {
-  max-width: 94%;
+.memory-frame__bubble--player::after {
+  right: 5px;
+  border-right: 1px solid rgba(255, 255, 255, 0.62);
+  background: rgba(20, 132, 123, 0.92);
+}
+
+.memory-frame__bubble--player > span {
+  color: #d7fffb;
+}
+
+.memory-frame__bubble--character {
+  justify-self: start;
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.84);
+  border-bottom-left-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
   font-family: var(--font-serif);
+}
+
+.memory-frame__bubble--character::after {
+  left: 5px;
+  border-left: 1px solid rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.memory-frame__bubble--character > span {
+  color: var(--accent-dark);
 }
 
 .opponent-visual__main > .memory-frame .memory-frame__visual {
@@ -3975,10 +4023,6 @@ figure {
 .opponent-visual__main > .memory-frame {
   flex: none;
   margin: 0;
-}
-
-.opponent-visual__main > .memory-frame > figcaption {
-  display: none;
 }
 
 .epilogue > .memory-frame {

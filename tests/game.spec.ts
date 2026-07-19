@@ -187,6 +187,20 @@ test('selects modalities and requires an in-memory key for image generation', as
   await expect(page.getByTestId('generated-media-image')).toContainText(
     /秋雾/,
   );
+  await expect(
+    page
+      .getByTestId('generated-media-image')
+      .locator('.memory-frame__bubble--player'),
+  ).toContainText(line);
+  await expect(
+    page
+      .getByTestId('generated-media-image')
+      .locator('.memory-frame__bubble--character'),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId('generated-media-image').locator('figcaption'),
+  ).toHaveCount(0);
+  await expect(page.getByText('对话文字由原文排版')).toHaveCount(0);
   await expect(page.getByTestId('visual-frame-1')).toBeVisible();
   await page.getByTestId('visual-frame-0').click();
   await expect(page.getByTestId('generated-media-image')).toHaveAttribute(

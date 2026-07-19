@@ -34,22 +34,17 @@ export function MemoryFrame({
           aria-label={`第${beat.round}轮画面台词`}
         >
           {beat.playerLine && (
-            <p className="memory-frame__player">
+            <div className="memory-frame__bubble memory-frame__bubble--player">
               <span>{session.briefing.player.name}</span>
-              {beat.playerLine}
-            </p>
+              <p>{beat.playerLine}</p>
+            </div>
           )}
-          <p className="memory-frame__character">
+          <div className="memory-frame__bubble memory-frame__bubble--character">
             <span>{session.briefing.character.name}</span>
-            {beat.characterLine}
-          </p>
+            <p>{beat.characterLine}</p>
+          </div>
         </div>
       </div>
-      <figcaption>
-        <span>{beat.round === 0 ? '开场' : `第 ${beat.round} 轮`}</span>
-        {beat.eventTitle ?? '这一刻'}
-        <small>对话文字由原文排版</small>
-      </figcaption>
     </figure>
   );
 }
