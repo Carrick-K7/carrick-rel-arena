@@ -55,7 +55,8 @@ import {
 
 type Screen = 'select' | 'briefing' | 'playing' | 'result';
 const IMAGE_CLIENT_TIMEOUT_MS = 195_000;
-const VIDEO_CLIENT_TIMEOUT_MS = 390_000;
+const VIDEO_CLIENT_TIMEOUT_MS = 630_000;
+const MAX_CONCURRENT_IMAGE_GENERATIONS = 3;
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('select');
@@ -147,29 +148,22 @@ export function App() {
       return;
     }
 
-    const beat = session.visualBeats.find((candidate, index) => {
+    const activeImageCount = Object.values(mediaByKey).filter(
+      (generation) =>
+        generation.sessionId === session.state.sessionId &&
+        generation.kind === 'image' &&
+        (generation.status === 'queued' ||
+          generation.status === 'running'),
+    ).length;
+    if (activeImageCount >= MAX_CONCURRENT_IMAGE_GENERATIONS) return;
+
+    const beat = session.visualBeats.find((candidate) => {
       const candidateKey = mediaKey(
         session.state.sessionId,
         candidate.id,
         'image',
       );
-      if (requestedMediaRef.current.has(candidateKey)) return false;
-      return session.visualBeats
-        .slice(0, index)
-        .every((previous) => {
-          const generation =
-            mediaByKey[
-              mediaKey(
-                session.state.sessionId,
-                previous.id,
-                'image',
-              )
-            ];
-          return (
-            generation?.status === 'succeeded' ||
-            generation?.status === 'failed'
-          );
-        });
+      return !requestedMediaRef.current.has(candidateKey);
     });
     if (!beat) return;
 
@@ -270,18 +264,6 @@ export function App() {
     }
     const finalBeat = session.visualBeats.at(-1);
     if (!finalBeat) return;
-    const finalImage =
-      mediaByKey[
-        mediaKey(session.state.sessionId, finalBeat.id, 'image')
-      ];
-    if (
-      !finalImage ||
-      finalImage.status === 'queued' ||
-      finalImage.status === 'running'
-    ) {
-      return;
-    }
-
     const requestKey = mediaKey(
       session.state.sessionId,
       finalBeat.id,
@@ -629,15 +611,6 @@ export function App() {
           mediaKey(session.state.sessionId, beat.id, 'image')
         ] ?? null,
     })) ?? [];
-  const latestImage =
-    session &&
-    latestBeat &&
-    (hasOutput(modalities, 'image') ||
-      hasOutput(modalities, 'video'))
-      ? (mediaByKey[
-          mediaKey(session.state.sessionId, latestBeat.id, 'image')
-        ] ?? null)
-      : null;
   const memoryVideo =
     session &&
     latestBeat &&
@@ -654,8 +627,7 @@ export function App() {
       <ResultScreen
         session={session}
         outputModes={modalities.outputs}
-        visualBeat={latestBeat}
-        imageGeneration={latestImage}
+        visualFrames={visualFrames}
         memoryVideoGeneration={memoryVideo}
         replaying={busy}
         onReplay={beginGame}

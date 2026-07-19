@@ -3,7 +3,6 @@ import type {
   MediaGeneration,
   OutputMode,
   PublicSession,
-  VisualBeat,
 } from '../../shared/contracts.js';
 import { GeneratedMedia } from './GeneratedMedia.js';
 import { BrandLogo } from './BrandLogo.js';
@@ -17,8 +16,10 @@ import {
 interface ResultScreenProps {
   session: PublicSession;
   outputModes: OutputMode[];
-  visualBeat: VisualBeat | null;
-  imageGeneration: MediaGeneration | null;
+  visualFrames: Array<{
+    beat: PublicSession['visualBeats'][number];
+    generation: MediaGeneration | null;
+  }>;
   memoryVideoGeneration: MediaGeneration | null;
   replaying: boolean;
   onReplay: () => void;
@@ -28,8 +29,7 @@ interface ResultScreenProps {
 export function ResultScreen({
   session,
   outputModes,
-  visualBeat,
-  imageGeneration,
+  visualFrames,
   memoryVideoGeneration,
   replaying,
   onReplay,
@@ -39,7 +39,8 @@ export function ResultScreen({
   const verdict = session.verdict;
   if (!verdict) return null;
   const finalProgress = relationshipProgress(session.state.metrics);
-  const imageEnabled = outputModes.includes('image');
+  const imageEnabled =
+    outputModes.includes('image') || outputModes.includes('video');
   const videoEnabled = outputModes.includes('video');
 
   async function copyResult() {
@@ -90,45 +91,6 @@ export function ResultScreen({
         <article className="epilogue">
           <span>结局现场</span>
           <p>{verdict.epilogue}</p>
-          {imageEnabled &&
-            visualBeat &&
-            imageGeneration?.status === 'succeeded' && (
-              <MemoryFrame
-                session={session}
-                beat={visualBeat}
-                generation={imageGeneration}
-              />
-            )}
-          {imageEnabled &&
-            visualBeat &&
-            imageGeneration?.status !== 'succeeded' && (
-              <GeneratedMedia
-                kind="image"
-                title={visualBeat.eventTitle ?? session.briefing.title}
-                generation={imageGeneration}
-              />
-            )}
-          {videoEnabled && visualBeat && (
-            <section className="memory-film" aria-label="本局回忆">
-              <div className="memory-film__heading">
-                <span>本局回忆</span>
-                <strong>把整段对话压缩成一支短片</strong>
-              </div>
-              <GeneratedMedia
-                kind="video"
-                title={verdict.title}
-                generation={memoryVideoGeneration}
-              />
-              <div className="memory-film__captions">
-                {verdict.keyMoments.slice(0, 3).map((moment) => (
-                  <p key={`${moment.round}-${moment.quote}`}>
-                    <span>第 {moment.round} 轮</span>
-                    {moment.quote}
-                  </p>
-                ))}
-              </div>
-            </section>
-          )}
         </article>
 
         <div className="score-card">
@@ -177,6 +139,107 @@ export function ResultScreen({
               </article>
             ))}
           </div>
+        </section>
+
+        <section
+          className="session-archive"
+          aria-labelledby="session-archive-title"
+          data-testid="session-archive"
+        >
+          <div className="session-archive__heading">
+            <div>
+              <span>本局档案</span>
+              <h2 id="session-archive-title">完整对话与制品</h2>
+            </div>
+            <p>
+              {visualFrames.length} 个剧情瞬间
+              {videoEnabled ? ' · 1 支回忆短片' : ''}
+            </p>
+          </div>
+
+          <div className="session-archive__timeline">
+            {visualFrames.map(({ beat, generation }) => (
+              <article
+                className="archive-beat"
+                key={beat.id}
+                data-testid="archive-beat"
+                data-visual-beat={beat.id}
+              >
+                <header>
+                  <span>
+                    {beat.round === 0
+                      ? '开场'
+                      : beat.kind === 'ending'
+                        ? `第 ${beat.round} 轮 · 结局`
+                        : `第 ${beat.round} 轮`}
+                  </span>
+                  <strong>
+                    {beat.eventTitle ??
+                      (beat.round === 0
+                        ? session.briefing.title
+                        : '对话推进')}
+                  </strong>
+                </header>
+
+                {imageEnabled &&
+                  generation?.status === 'succeeded' && (
+                    <MemoryFrame
+                      session={session}
+                      beat={beat}
+                      generation={generation}
+                    />
+                  )}
+                {imageEnabled &&
+                  generation?.status !== 'succeeded' && (
+                    <GeneratedMedia
+                      kind="image"
+                      title={
+                        beat.eventTitle ?? session.briefing.title
+                      }
+                      generation={generation}
+                    />
+                  )}
+
+                <div className="archive-beat__dialogue">
+                  {beat.playerLine && (
+                    <div className="archive-line archive-line--player">
+                      <span>{session.briefing.player.name}</span>
+                      <p>{beat.playerLine}</p>
+                    </div>
+                  )}
+                  <div className="archive-line archive-line--character">
+                    <span>{session.briefing.character.name}</span>
+                    <p>{beat.characterLine}</p>
+                  </div>
+                </div>
+                <p className="archive-beat__direction">
+                  {beat.action.stageDirection}
+                </p>
+              </article>
+            ))}
+          </div>
+
+          {videoEnabled && (
+            <section className="memory-film" aria-label="本局回忆短片">
+              <div className="memory-film__heading">
+                <span>整局制品</span>
+                <strong>把完整对话压缩成一支回忆短片</strong>
+              </div>
+              <GeneratedMedia
+                kind="video"
+                title={verdict.title}
+                generation={memoryVideoGeneration}
+              />
+              <div className="memory-film__captions">
+                {verdict.keyMoments.slice(0, 3).map((moment) => (
+                  <p key={`${moment.round}-${moment.quote}`}>
+                    <span>第 {moment.round} 轮</span>
+                    {moment.quote}
+                  </p>
+                ))}
+              </div>
+            </section>
+          )}
         </section>
       </section>
 

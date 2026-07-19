@@ -8,7 +8,7 @@ const repairStrongLine =
 const mediaAccessKey =
   process.env.E2E_MEDIA_ACCESS_KEY ?? 'test-media-key';
 const externalMedia = process.env.E2E_EXTERNAL === '1';
-const mediaGenerationTimeout = externalMedia ? 360_000 : 10_000;
+const mediaGenerationTimeout = externalMedia ? 630_000 : 10_000;
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -147,7 +147,7 @@ test('uses the new font system and selects a card before entering its briefing',
 test('selects modalities and requires an in-memory key for image generation', async ({
   page,
 }) => {
-  test.setTimeout(externalMedia ? 480_000 : 60_000);
+  test.setTimeout(externalMedia ? 720_000 : 60_000);
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await expect(page.getByTestId('modality-settings')).toBeVisible();
@@ -251,7 +251,7 @@ test('selects modalities and requires an in-memory key for image generation', as
 test('uses per-turn images and creates one whole-session memory film', async ({
   page,
 }) => {
-  test.setTimeout(externalMedia ? 480_000 : 90_000);
+  test.setTimeout(externalMedia ? 720_000 : 90_000);
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await page.getByTestId('output-mode-video').click();
@@ -269,7 +269,13 @@ test('uses per-turn images and creates one whole-session memory film', async ({
   await expect(page.getByTestId('generated-media-video')).toBeVisible({
     timeout: mediaGenerationTimeout,
   });
-  await expect(page.getByLabel('本局回忆')).toContainText(
+  const archive = page.getByTestId('session-archive');
+  await expect(archive).toBeVisible();
+  expect(
+    await archive.getByTestId('generated-media-image').count(),
+  ).toBeGreaterThan(1);
+  await expect(archive.getByTestId('generated-media-video')).toBeVisible();
+  await expect(page.getByLabel('本局回忆短片')).toContainText(
     /第 \d 轮/,
   );
 });
@@ -308,6 +314,19 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
 
   await expect(page.getByTestId('result-screen')).toContainText('周末有约');
   await expect(page.getByTestId('result-screen')).toContainText('S');
+  await expect(page.getByTestId('session-archive')).toBeVisible();
+  expect(await page.getByTestId('archive-beat').count()).toBeGreaterThan(
+    1,
+  );
+  await expect(page.getByTestId('archive-beat').first()).toContainText(
+    '开场',
+  );
+  await expect(page.getByTestId('session-archive')).toContainText(
+    genericStrongLine,
+  );
+  await expect(page.getByTestId('session-archive')).toContainText(
+    '完整对话与制品',
+  );
   await page.getByTestId('back-to-levels').click();
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
     '已完成',

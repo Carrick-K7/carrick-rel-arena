@@ -39,7 +39,9 @@ export function GeneratedMedia({
         <div className="generated-media__skeleton" />
         <p>
           正在生成{label}
-          {kind === 'video' ? '，通常需要一到三分钟…' : '…'}
+          {kind === 'video'
+            ? '，通常需要三到六分钟…'
+            : '，通常需要约一分钟…'}
         </p>
       </section>
     );

@@ -126,7 +126,7 @@ export function readMediaConfig(): MediaConfig {
     ),
     videoTimeoutMs: readInt(
       process.env.ARK_VIDEO_TIMEOUT_MS,
-      360_000,
+      600_000,
       30_000,
       900_000,
     ),
@@ -528,6 +528,7 @@ class ArkMediaProvider implements MediaProvider {
     prompt: string,
     references: string[],
   ): Promise<MediaResult> {
+    const startedAt = Date.now();
     const created = await this.request<{ id?: string; error?: unknown }>(
       '/contents/generations/tasks',
       {
@@ -553,8 +554,12 @@ class ArkMediaProvider implements MediaProvider {
     if (!created.id) {
       throw new Error('Ark video response contained no task ID');
     }
+    console.info(
+      `[media:ark:video] task accepted in ${Date.now() - startedAt}ms with ${references.length} references`,
+    );
 
     const deadline = Date.now() + this.config.videoTimeoutMs;
+    let previousStatus: string | undefined;
     while (Date.now() < deadline) {
       await delay(this.config.videoPollIntervalMs);
       let task: {
@@ -573,6 +578,12 @@ class ArkMediaProvider implements MediaProvider {
       } catch (error) {
         if (isRetryablePollError(error)) continue;
         throw error;
+      }
+      if (task.status !== previousStatus) {
+        previousStatus = task.status;
+        console.info(
+          `[media:ark:video] upstream status ${task.status ?? 'unknown'} after ${Date.now() - startedAt}ms`,
+        );
       }
       if (task.status === 'succeeded') {
         const url = task.content?.video_url;
