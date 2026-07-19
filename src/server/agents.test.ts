@@ -166,6 +166,12 @@ describe('agent conversation continuity', () => {
     expect(DIRECTOR_SYSTEM_PROMPT).toContain(
       '不得为了制造挑战、延长回合或维持冲突而增加阻力',
     );
+    expect(DIRECTOR_SYSTEM_PROMPT).toContain(
+      '只评价台词中可观察的内容和影响',
+    );
+    expect(DIRECTOR_SYSTEM_PROMPT).toContain(
+      '不得仅因不够完美就降低关系温度或提高压力',
+    );
     expect(actorPrompt).toContain('先准确承接玩家刚刚说出的具体内容');
     expect(actorPrompt).toContain('玩家已经回答的问题不得重复追问');
     expect(actorPrompt).toContain('不得为了保持挑战性而故意抵抗');

@@ -147,7 +147,7 @@ test('uses the new font system and selects a card before entering its briefing',
 test('selects modalities and requires an in-memory key for image generation', async ({
   page,
 }) => {
-  if (externalMedia) test.setTimeout(480_000);
+  test.setTimeout(externalMedia ? 480_000 : 60_000);
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await expect(page.getByTestId('modality-settings')).toBeVisible();
