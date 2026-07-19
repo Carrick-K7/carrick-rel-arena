@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type {
   Capabilities,
+  EndingTier,
   ScenarioId,
   ScenarioSummary,
   ScenarioType,
@@ -138,7 +139,7 @@ export function ScenarioSelect({
             <button
               key={scenario.id}
               type="button"
-              className={`scenario-card ${
+              className={`scenario-card scenario-card--${scenario.type} ${
                 scenarioProgress?.completed ? 'is-completed' : ''
               }`}
               disabled={busy}
@@ -160,9 +161,13 @@ export function ScenarioSelect({
                   {scenarioProgress?.completed ? '已完成' : '未完成'}
                 </b>
                 <span>
-                  男 {scenarioProgress?.genders.male?.bestTier ?? '—'}
+                  男{' '}
+                  <TierMark tier={scenarioProgress?.genders.male?.bestTier} />
                   {' · '}
-                  女 {scenarioProgress?.genders.female?.bestTier ?? '—'}
+                  女{' '}
+                  <TierMark
+                    tier={scenarioProgress?.genders.female?.bestTier}
+                  />
                 </span>
               </span>
             </button>
@@ -225,6 +230,11 @@ function typeLabel(type: ScenarioType): string {
     alignment: '磨合',
     repair: '修复',
   }[type];
+}
+
+function TierMark({ tier }: { tier: EndingTier | undefined }) {
+  if (!tier) return <b className="tier">—</b>;
+  return <b className={`tier tier--${tier.toLowerCase()}`}>{tier}</b>;
 }
 
 function providerLabel(capabilities: Capabilities | null): string {

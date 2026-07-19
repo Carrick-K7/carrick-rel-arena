@@ -76,7 +76,10 @@ export function GameStage({
           <span>{briefing.timeAndPlace}</span>
           <strong>{briefing.title}</strong>
         </div>
-        <div className="rounds" data-testid="round-counter">
+        <div
+          className={`rounds ${roundsLeft <= 2 ? 'rounds--urgent' : ''}`}
+          data-testid="round-counter"
+        >
           <span>还剩</span>
           <b>{roundsLeft}</b>
           <small>轮对话</small>
