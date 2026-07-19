@@ -1,64 +1,102 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
-  Capabilities,
-  InputMode,
   MediaGeneration,
   OutputMode,
   PublicSession,
+  TranscriptEntry,
 } from '../../shared/contracts.js';
+import {
+  relationshipProgress,
+  relationshipProgressLabel,
+} from '../relationship-progress.js';
+import { BrandLogo } from './BrandLogo.js';
 import { GeneratedMedia } from './GeneratedMedia.js';
-import { Gauge } from './Gauge.js';
 import { Portrait } from './Portrait.js';
 
 interface GameStageProps {
   session: PublicSession;
-  capabilities: Capabilities | null;
   draft: string;
   pendingLine: string | null;
   busy: boolean;
   error: string | null;
-  directorSummary: string | null;
-  inputMode: InputMode;
   outputMode: OutputMode;
   mediaGeneration: MediaGeneration | null;
   mediaTitle: string | null;
   recording: boolean;
   speechInputSupported: boolean;
+  speakingEntryId: string | null;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
   onToggleRecording: () => void;
+  onToggleSpeech: (entry: TranscriptEntry) => void;
   onOpenSettings: () => void;
   onExit: () => void;
 }
 
 export function GameStage({
   session,
-  capabilities,
   draft,
   pendingLine,
   busy,
   error,
-  directorSummary,
-  inputMode,
   outputMode,
   mediaGeneration,
   mediaTitle,
   recording,
   speechInputSupported,
+  speakingEntryId,
   onDraftChange,
   onSubmit,
   onToggleRecording,
+  onToggleSpeech,
   onOpenSettings,
   onExit,
 }: GameStageProps) {
   const transcriptRef = useRef<HTMLDivElement>(null);
-  const { state, briefing, lastPerformance } = session;
-  const roundsLeft = Math.max(0, state.maxRounds - state.round);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const stickToBottomRef = useRef(true);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const { state, briefing } = session;
+  const progress = relationshipProgress(state.metrics);
+  const progressLabel = relationshipProgressLabel(progress);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(136, Math.max(28, textarea.scrollHeight));
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 136 ? 'auto' : 'hidden';
+  }, [draft]);
 
   useEffect(() => {
     const element = transcriptRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [session.transcript.length, pendingLine, busy]);
+    if (!element) return;
+    if (pendingLine || stickToBottomRef.current) {
+      element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+      setShowJumpToLatest(false);
+      stickToBottomRef.current = true;
+    } else {
+      setShowJumpToLatest(true);
+    }
+  }, [busy, pendingLine, session.transcript.length]);
+
+  function handleTranscriptScroll() {
+    const element = transcriptRef.current;
+    if (!element) return;
+    const distance =
+      element.scrollHeight - element.scrollTop - element.clientHeight;
+    stickToBottomRef.current = distance < 72;
+    if (stickToBottomRef.current) setShowJumpToLatest(false);
+  }
+
+  function jumpToLatest() {
+    const element = transcriptRef.current;
+    if (!element) return;
+    stickToBottomRef.current = true;
+    setShowJumpToLatest(false);
+    element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+  }
 
   return (
     <main className="game-screen">
@@ -69,156 +107,154 @@ export function GameStage({
           onClick={onExit}
           aria-label="返回关系修炼关卡"
         >
-          <span className="brand__mark">修</span>
-          <span><b>关系修炼</b></span>
+          <BrandLogo compact />
         </button>
-        <div className="scene-title">
-          <span>{briefing.timeAndPlace}</span>
-          <strong>{briefing.title}</strong>
-        </div>
-        <div
-          className={`rounds ${roundsLeft <= 2 ? 'rounds--urgent' : ''}`}
-          data-testid="round-counter"
-        >
-          <span>还剩</span>
-          <b>{roundsLeft}</b>
-          <small>轮对话</small>
+        <span className="game-topbar__title">{briefing.title}</span>
+        <div className="game-topbar__actions">
+          <span data-testid="round-counter">
+            第 {state.round + 1} / {state.maxRounds} 轮
+          </span>
+          <button
+            className="header-icon-button"
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="打开互动设置"
+          >
+            <SettingsIcon />
+          </button>
         </div>
       </header>
 
-      <section className="game-brief">
-        <p>
+      <section className="story-context" aria-label="故事背景">
+        <div className="story-context__heading">
+          <span>第 {briefing.number} 关</span>
+          <h1>{briefing.title}</h1>
+        </div>
+        <article className="story-context__goal">
           <span>目标</span>
-          {briefing.goal}
-        </p>
+          <p>{briefing.goal}</p>
+        </article>
+        <article>
+          <span>此刻</span>
+          <strong>{briefing.timeAndPlace}</strong>
+        </article>
+        <article>
+          <span>事情发生之前</span>
+          <p>{briefing.premise}</p>
+        </article>
+        {state.activeEvent && (
+          <article
+            className="story-context__event"
+            data-testid="story-event"
+          >
+            <span>现场变化</span>
+            <strong>{state.activeEvent.title}</strong>
+            <p>{state.activeEvent.description}</p>
+          </article>
+        )}
       </section>
 
-      <section className="arena-layout">
-        <section className="character-stage">
-          <Portrait
-            performance={lastPerformance}
-            character={briefing.character}
-          />
-        </section>
-
-        <section className="conversation-stage">
-          <div className="status-strip">
-            <Gauge
-              label="关系温度"
-              value={state.metrics.warmth}
-              kind="warmth"
-            />
-            <Gauge
-              label="对话压力"
-              value={state.metrics.pressure}
-              kind="pressure"
-            />
+      <section className="chat-stage" aria-label="对话">
+        <div
+          className="relationship-progress"
+          role="progressbar"
+          aria-label="关系进展"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+          data-testid="relationship-progress"
+        >
+          <div className="relationship-progress__label">
+            <span>关系进展</span>
+            <strong>{progressLabel}</strong>
           </div>
+          <div className="relationship-progress__track">
+            <i style={{ width: `${progress}%` }} />
+          </div>
+        </div>
 
-          <section className="latest-reply" aria-live="polite">
-            <p className="latest-reply__meta">
-              <strong>{briefing.character.name}</strong>
-              <span>
-                {emotionLabel(lastPerformance.emotion)} ·{' '}
-                {toneLabel(lastPerformance.tone)}
-              </span>
-            </p>
-            <h1 data-testid="latest-line">“{lastPerformance.line}”</h1>
-            <div className="delta-row">
-              <Delta
-                label="温度"
-                value={lastPerformance.stateChanges.warmth}
-              />
-              <Delta
-                label="压力"
-                value={lastPerformance.stateChanges.pressure}
-                inverse
-              />
-            </div>
-          </section>
-
-          {state.activeEvent && (
-            <section className="story-event" data-testid="story-event">
-              <span>剧情转折</span>
-              <div>
-                <strong>{state.activeEvent.title}</strong>
-                <p>{state.activeEvent.description}</p>
-              </div>
-            </section>
-          )}
-
-          {(outputMode === 'image' || outputMode === 'video') &&
-            mediaTitle && (
-              <GeneratedMedia
-                kind={outputMode}
-                title={mediaTitle}
-                generation={mediaGeneration}
-              />
-            )}
-
-          <section className="transcript-panel">
-            <div className="panel-heading">
-              <span>对话</span>
-              <small>
-                {capabilities?.remoteText ? 'AI 实时生成' : '本地演示'}
-              </small>
-            </div>
-            <div className="transcript" ref={transcriptRef}>
-              {session.transcript.map((entry) => (
-                <article
-                  key={entry.id}
-                  className={`message message--${entry.speaker}`}
-                >
+        <div className="chat-history-wrap">
+          <div
+            className="transcript"
+            ref={transcriptRef}
+            onScroll={handleTranscriptScroll}
+            data-testid="transcript-history"
+          >
+            {session.transcript.map((entry) => (
+              <article
+                key={entry.id}
+                className={`message message--${entry.speaker}`}
+                data-testid={`message-${entry.speaker}`}
+              >
+                <div className="message__meta">
                   <span>
                     {entry.speaker === 'player'
                       ? '你'
                       : briefing.character.name}
                     {entry.round > 0 && ` · ${entry.round}`}
                   </span>
-                  <p>{entry.text}</p>
-                </article>
-              ))}
-              {pendingLine && (
-                <article className="message message--player is-pending">
+                  {entry.speaker === 'character' && (
+                    <button
+                      type="button"
+                      className={
+                        speakingEntryId === entry.id ? 'is-playing' : ''
+                      }
+                      onClick={() => onToggleSpeech(entry)}
+                      aria-label={
+                        speakingEntryId === entry.id
+                          ? `停止播放${briefing.character.name}第${entry.round}轮的台词`
+                          : `播放${briefing.character.name}第${entry.round}轮的台词`
+                      }
+                      data-testid={`speak-message-${entry.id}`}
+                    >
+                      {speakingEntryId === entry.id ? (
+                        <StopIcon />
+                      ) : (
+                        <SpeakerIcon />
+                      )}
+                    </button>
+                  )}
+                </div>
+                <p>{entry.text}</p>
+              </article>
+            ))}
+            {pendingLine && (
+              <article className="message message--player is-pending">
+                <div className="message__meta">
                   <span>你 · {state.round + 1}</span>
-                  <p>{pendingLine}</p>
-                </article>
-              )}
-              {busy && (
-                <article className="message message--thinking">
+                </div>
+                <p>{pendingLine}</p>
+              </article>
+            )}
+            {busy && (
+              <article className="message message--thinking">
+                <div className="message__meta">
                   <span>{briefing.character.name}</span>
-                  <p>正在回应…</p>
-                </article>
-              )}
-            </div>
-          </section>
-
-          <p className="director-note" aria-live="polite">
-            <span>局势</span>
-            {directorSummary ??
-              '对方在等你回应此刻真正需要被看见的部分。'}
-          </p>
-        </section>
-      </section>
-
-      <footer className="composer-wrap">
-        <div className={`composer ${recording ? 'is-recording' : ''}`}>
-          <div className="composer__meta">
-            <span>
-              第 {state.round + 1} 句话 ·{' '}
-              {inputMode === 'voice' ? '语音输入' : '文字输入'}
-            </span>
-            <small>{draft.length}/240</small>
+                </div>
+                <p>正在回应</p>
+              </article>
+            )}
           </div>
+          {showJumpToLatest && (
+            <button
+              className="jump-to-latest"
+              type="button"
+              onClick={jumpToLatest}
+              data-testid="jump-to-latest"
+            >
+              回到最新
+              <DownIcon />
+            </button>
+          )}
+        </div>
+
+        <div className={`composer ${recording ? 'is-recording' : ''}`}>
           <textarea
+            ref={textareaRef}
             value={draft}
             maxLength={240}
-            rows={3}
-            placeholder={
-              inputMode === 'voice'
-                ? '点击“开始说话”，识别后可以继续编辑…'
-                : '你会怎么接？'
-            }
+            rows={1}
+            placeholder={`回复${briefing.character.name}…`}
             disabled={busy}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={(event) => {
@@ -233,115 +269,170 @@ export function GameStage({
             }}
             data-testid="dialogue-input"
           />
-          <div className="composer__actions">
-            {inputMode === 'voice' && (
+          <div className="composer__toolbar">
+            <div>
               <button
                 type="button"
-                className={`utility-button ${recording ? 'is-active' : ''}`}
+                onClick={onOpenSettings}
+                aria-label="打开互动设置"
+              >
+                <SettingsIcon />
+              </button>
+              <button
+                type="button"
+                className={recording ? 'is-active' : ''}
                 onClick={onToggleRecording}
                 disabled={!speechInputSupported || busy}
                 aria-label={recording ? '停止语音输入' : '开始语音输入'}
                 data-testid="voice-input"
               >
-                {recording ? '停止录音' : '开始说话'}
+                {recording ? <StopIcon /> : <MicIcon />}
               </button>
-            )}
-            <button
-              type="button"
-              className="utility-button"
-              onClick={onOpenSettings}
-              aria-label="打开模态设置"
-            >
-              模态设置
-            </button>
-            <button
-              className="send-button"
-              type="button"
-              onClick={onSubmit}
-              disabled={busy || draft.trim().length === 0}
-              data-testid="send-line"
-            >
-              {busy ? '等待回应' : '发送'}
-            </button>
+              {recording && <span>正在听…</span>}
+            </div>
+            <div>
+              {draft.length > 200 && <small>{draft.length}/240</small>}
+              <button
+                className="send-button"
+                type="button"
+                onClick={onSubmit}
+                disabled={busy || draft.trim().length === 0}
+                aria-label={busy ? '等待回应' : '发送'}
+                data-testid="send-line"
+              >
+                {busy ? <WaitingIcon /> : <SendIcon />}
+              </button>
+            </div>
           </div>
+          {error && (
+            <p className="composer-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        {error && (
-          <p className="composer-error" role="alert">
-            {error}
-          </p>
-        )}
-        <p className="ai-disclosure">
-          AI 角色 · {outputModeLabel(outputMode)}输出 ·
-          本关状态不带入下一关
-          <span data-testid="usage-meter">{usageLabel(session)}</span>
-        </p>
-      </footer>
+      </section>
+
+      <section className="opponent-stage" aria-label="对方形象">
+        <OpponentVisual
+          session={session}
+          outputMode={outputMode}
+          mediaGeneration={mediaGeneration}
+          mediaTitle={mediaTitle}
+        />
+      </section>
     </main>
   );
 }
 
-function outputModeLabel(mode: OutputMode): string {
-  return {
-    text: '文字',
-    voice: '语音',
-    image: '图像',
-    video: '视频',
-  }[mode];
-}
-
-function Delta({
-  label,
-  value,
-  inverse = false,
+function OpponentVisual({
+  session,
+  outputMode,
+  mediaGeneration,
+  mediaTitle,
 }: {
-  label: string;
-  value: number;
-  inverse?: boolean;
+  session: PublicSession;
+  outputMode: OutputMode;
+  mediaGeneration: MediaGeneration | null;
+  mediaTitle: string | null;
 }) {
-  if (value === 0) return null;
-  const beneficial = inverse ? value < 0 : value > 0;
+  const mediaRequested =
+    (outputMode === 'image' || outputMode === 'video') && mediaTitle;
+  const mediaSucceeded =
+    Boolean(mediaRequested) && mediaGeneration?.status === 'succeeded';
+
+  if (mediaSucceeded && mediaTitle) {
+    return (
+      <GeneratedMedia
+        kind={outputMode as 'image' | 'video'}
+        title={mediaTitle}
+        generation={mediaGeneration}
+      />
+    );
+  }
+
   return (
-    <span className={beneficial ? 'delta--good' : 'delta--bad'}>
-      {label} {value > 0 ? '+' : ''}
-      {value}
-    </span>
+    <div className="opponent-stage__portrait">
+      <Portrait
+        performance={session.lastPerformance}
+        character={session.briefing.character}
+      />
+      {mediaRequested &&
+        (!mediaGeneration ||
+          mediaGeneration.status === 'queued' ||
+          mediaGeneration.status === 'running') && (
+          <div
+            className="opponent-stage__media-status"
+            data-testid="generated-media-loading"
+          >
+            <span />
+            正在生成{outputMode === 'image' ? '剧情图像' : '剧情视频'}…
+          </div>
+        )}
+      {mediaRequested && mediaGeneration?.status === 'failed' && (
+        <p
+          className="opponent-stage__media-fallback"
+          data-testid="generated-media-failed"
+        >
+          影像未完成，已回到角色立绘。
+        </p>
+      )}
+    </div>
   );
 }
 
-function toneLabel(
-  tone: PublicSession['lastPerformance']['tone'],
-): string {
-  const labels = {
-    icy: '冰冷',
-    sharp: '锋利',
-    quiet: '低声',
-    shaky: '发颤',
-    dry: '冷幽默',
-    soft: '放软',
-  };
-  return labels[tone];
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
+    </svg>
+  );
 }
 
-function emotionLabel(
-  emotion: PublicSession['lastPerformance']['emotion'],
-): string {
-  const labels = {
-    guarded: '戒备',
-    angry: '生气',
-    hurt: '受伤',
-    testing: '试探',
-    softening: '动摇',
-    warm: '温和',
-    done: '心冷',
-  };
-  return labels[emotion];
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+    </svg>
+  );
 }
 
-function usageLabel(session: PublicSession): string {
-  const { usage } = session;
-  const cost =
-    usage.estimatedCostUsd === null
-      ? '成本待定'
-      : `$${usage.estimatedCostUsd.toFixed(4)}`;
-  return `模型 ${usage.calls} 次 · ${usage.totalTokens.toLocaleString()} tokens · ${cost}`;
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m5 12 14-7-4 14-3-6-7-1Z" />
+    </svg>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 9h4l4-4v14l-4-4H5ZM16 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="7" y="7" width="10" height="10" rx="2" />
+    </svg>
+  );
+}
+
+function DownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function WaitingIcon() {
+  return (
+    <svg className="is-spinning" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 12a8 8 0 1 1-3-6.25" />
+    </svg>
+  );
 }

@@ -9,6 +9,7 @@ import type {
   ScenarioBriefing,
   ScenarioId,
   ScenarioSummary,
+  TranscriptEntry,
 } from '../shared/contracts.js';
 import {
   ApiError,
@@ -22,6 +23,7 @@ import {
   verifyMediaAccess,
 } from './api.js';
 import { Briefing } from './components/Briefing.js';
+import { BrandLogo } from './components/BrandLogo.js';
 import { GameStage } from './components/GameStage.js';
 import { ModalitySettings } from './components/ModalitySettings.js';
 import { ResultScreen } from './components/ResultScreen.js';
@@ -38,6 +40,7 @@ import {
   saveProgress,
   withPreferredGender,
 } from './progress.js';
+import { defaultScenarioId } from './scenario-filters.js';
 import {
   speakLine,
   startSpeechInput,
@@ -57,15 +60,20 @@ export function App() {
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [playerGender, setPlayerGender] = useState<Gender>('male');
   const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
+  const [selectedScenarioId, setSelectedScenarioId] =
+    useState<ScenarioId | null>(null);
+  const [selectedBriefing, setSelectedBriefing] =
+    useState<ScenarioBriefing | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
   const [progress, setProgress] = useState(loadProgress);
   const [draft, setDraft] = useState('');
   const [pendingLine, setPendingLine] = useState<string | null>(null);
-  const [directorSummary, setDirectorSummary] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [speakingEntryId, setSpeakingEntryId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [modalities, setModalities] = useState(loadModalities);
   const [mediaAccessKey, setMediaAccessKey] = useState('');
@@ -89,6 +97,7 @@ export function App() {
         if (!active) return;
         setScenarios(nextScenarios);
         setCapabilities(nextCapabilities);
+        setSelectedScenarioId(defaultScenarioId(nextScenarios, progress));
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -101,6 +110,26 @@ export function App() {
       stopRecognitionRef.current?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (screen !== 'select' || !selectedScenarioId) return;
+    let active = true;
+    setPreviewLoading(true);
+    setError(null);
+    void getBriefing(selectedScenarioId, progress.preferredGender)
+      .then((nextBriefing) => {
+        if (active) setSelectedBriefing(nextBriefing);
+      })
+      .catch((loadError: unknown) => {
+        if (active) setError(errorMessage(loadError));
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [progress.preferredGender, screen, selectedScenarioId]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
@@ -187,13 +216,22 @@ export function App() {
     session,
   ]);
 
-  async function selectScenario(scenarioId: ScenarioId) {
+  function selectScenario(scenarioId: ScenarioId) {
+    setSelectedScenarioId(scenarioId);
+  }
+
+  async function enterSelectedScenario() {
+    if (!selectedScenarioId) return;
     setBusy(true);
     setError(null);
     stopSpeaking();
     try {
       const gender = progress.preferredGender;
-      const nextBriefing = await getBriefing(scenarioId, gender);
+      const nextBriefing =
+        selectedBriefing?.id === selectedScenarioId &&
+        selectedBriefing.player.gender === gender
+          ? selectedBriefing
+          : await getBriefing(selectedScenarioId, gender);
       setPlayerGender(gender);
       setBriefing(nextBriefing);
       setSession(null);
@@ -228,7 +266,6 @@ export function App() {
     if (!briefing) return;
     setBusy(true);
     setError(null);
-    setDirectorSummary(null);
     stopSpeaking();
     try {
       const nextSession = await createSession(briefing.id, playerGender);
@@ -239,7 +276,7 @@ export function App() {
       setMediaByKey({});
       setDisplayedMedia(null);
       requestedMediaRef.current.clear();
-      if (modalities.output === 'voice') speakSessionLine(nextSession);
+      if (modalities.output === 'voice') playSessionLine(nextSession);
     } catch (startError) {
       setError(errorMessage(startError));
     } finally {
@@ -261,10 +298,9 @@ export function App() {
     try {
       const result = await playTurn(session.state.sessionId, text);
       setSession(result.session);
-      setDirectorSummary(result.directorSummary);
       setPendingLine(null);
       if (modalities.output === 'voice') {
-        speakSessionLine(result.session);
+        playSessionLine(result.session);
       }
       if (
         result.session.state.phase === 'result' &&
@@ -300,6 +336,9 @@ export function App() {
       setRecording(false);
       return;
     }
+    if (modalities.input !== 'voice') {
+      updateModalities({ ...modalities, input: 'voice' });
+    }
     setRecording(true);
     stopRecognitionRef.current = startSpeechInput(
       (text) => setDraft(text.slice(0, 240)),
@@ -312,6 +351,7 @@ export function App() {
 
   function returnToLevels() {
     stopSpeaking();
+    setSpeakingEntryId(null);
     stopRecognitionRef.current?.();
     stopRecognitionRef.current = null;
     setRecording(false);
@@ -319,7 +359,6 @@ export function App() {
     setBriefing(null);
     setDraft('');
     setPendingLine(null);
-    setDirectorSummary(null);
     setError(null);
     setMediaByKey({});
     setDisplayedMedia(null);
@@ -341,11 +380,60 @@ export function App() {
   }
 
   function changeOutputMode(output: OutputMode) {
-    if (output !== 'voice') stopSpeaking();
+    if (output !== 'voice') {
+      stopSpeaking();
+      setSpeakingEntryId(null);
+    }
     updateModalities({ ...modalities, output });
     if (output === 'voice' && session) {
-      speakSessionLine(session);
+      playSessionLine(session);
     }
+  }
+
+  function toggleTranscriptSpeech(entry: TranscriptEntry) {
+    if (!session || entry.speaker !== 'character' || !entry.tone) return;
+    if (speakingEntryId === entry.id) {
+      stopSpeaking();
+      setSpeakingEntryId(null);
+      return;
+    }
+    setSpeakingEntryId(entry.id);
+    void speakLine(
+      entry.text,
+      entry.tone,
+      session.briefing.character.gender,
+      session.state.sessionId,
+      {
+        onEnd: () => {
+          if (!mountedRef.current) return;
+          setSpeakingEntryId((current) =>
+            current === entry.id ? null : current,
+          );
+        },
+      },
+    );
+  }
+
+  function playSessionLine(nextSession: PublicSession) {
+    const entry = [...nextSession.transcript]
+      .reverse()
+      .find((candidate) => candidate.speaker === 'character');
+    if (!entry?.tone) return;
+    setSpeakingEntryId(entry.id);
+    void speakLine(
+      entry.text,
+      entry.tone,
+      nextSession.briefing.character.gender,
+      nextSession.state.sessionId,
+      {
+        onEnd: () => {
+          if (!mountedRef.current) return;
+          setSpeakingEntryId((current) =>
+            current === entry.id ? null : current,
+          );
+        },
+      },
+    );
   }
 
   function updateModalities(next: ModalityPreferences) {
@@ -366,7 +454,9 @@ export function App() {
   if (!scenarios) {
     return (
       <main className="loading-screen">
-        <span className="loading-mark">修</span>
+        <span className="loading-mark">
+          <BrandLogo compact />
+        </span>
         <p>{error ?? '正在整理八关目录…'}</p>
         {error && (
           <button type="button" onClick={() => window.location.reload()}>
@@ -400,21 +490,20 @@ export function App() {
     content = (
       <GameStage
         session={session}
-        capabilities={capabilities}
         draft={draft}
         pendingLine={pendingLine}
         busy={busy}
         error={error}
-        directorSummary={directorSummary}
-        inputMode={modalities.input}
         outputMode={modalities.output}
         mediaGeneration={activeMedia}
         mediaTitle={displayedMedia?.title ?? null}
         recording={recording}
         speechInputSupported={speechInputSupported}
+        speakingEntryId={speakingEntryId}
         onDraftChange={setDraft}
         onSubmit={submitLine}
         onToggleRecording={toggleRecording}
+        onToggleSpeech={toggleTranscriptSpeech}
         onOpenSettings={() => setSettingsOpen(true)}
         onExit={returnToLevels}
       />
@@ -424,7 +513,6 @@ export function App() {
       <>
         <Briefing
           briefing={briefing}
-          capabilities={capabilities}
           playerGender={playerGender}
           starting={busy}
           onPlayerGenderChange={changePlayerGender}
@@ -443,10 +531,14 @@ export function App() {
       <ScenarioSelect
         scenarios={scenarios}
         progress={progress}
-        capabilities={capabilities}
+        selectedScenarioId={selectedScenarioId ?? scenarios[0].id}
+        selectedBriefing={selectedBriefing}
+        previewLoading={previewLoading}
         busy={busy}
         error={error}
         onSelect={selectScenario}
+        onEnter={enterSelectedScenario}
+        onOpenSettings={() => setSettingsOpen(true)}
         onClearProgress={resetProgress}
       />
     );
@@ -455,16 +547,17 @@ export function App() {
   return (
     <>
       {content}
-      <button
-        className="settings-trigger"
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        aria-label="打开模态设置"
-        data-testid="open-modality-settings"
-      >
-        <span>设置</span>
-        <small>{outputModeLabel(modalities.output)}输出</small>
-      </button>
+      {screen === 'briefing' && (
+        <button
+          className="settings-trigger settings-trigger--icon"
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="打开互动设置"
+          data-testid="open-modality-settings"
+        >
+          <SettingsIcon />
+        </button>
+      )}
       <ModalitySettings
         open={settingsOpen}
         capabilities={capabilities}
@@ -480,30 +573,20 @@ export function App() {
   );
 }
 
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
+    </svg>
+  );
+}
+
 function mediaKey(
   sessionId: string,
   hookId: string,
   output: 'image' | 'video',
 ): string {
   return `${sessionId}:${hookId}:${output}`;
-}
-
-function outputModeLabel(output: OutputMode): string {
-  return {
-    text: '文字',
-    voice: '语音',
-    image: '图像',
-    video: '视频',
-  }[output];
-}
-
-function speakSessionLine(session: PublicSession) {
-  void speakLine(
-    session.lastPerformance.line,
-    session.lastPerformance.tone,
-    session.briefing.character.gender,
-    session.state.sessionId,
-  );
 }
 
 function errorMessage(error: unknown): string {

@@ -28,22 +28,79 @@ test('shows all eight open scenarios and filters by type and progress', async ({
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '把关系练成',
   );
-  await expect(page.getByText('关系修炼', { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: '关系修炼首页' }),
+  ).toBeVisible();
   await expect(page.getByText('Relationship Arena')).toHaveCount(0);
+  await expect(page.getByText('在线角色')).toHaveCount(0);
   await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(8);
 
   await page.getByTestId('type-filter-invitation').click();
   await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(2);
-  await expect(page.getByText('周五六点：约对方逛周末市集')).toBeVisible();
-  await expect(page.getByText('大雨突袭：把泡汤的约会重新约好')).toBeVisible();
+  await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
+    '周五六点：约对方逛周末市集',
+  );
+  await expect(page.getByTestId('scenario-card-rain-check')).toContainText(
+    '大雨突袭：把泡汤的约会重新约好',
+  );
 
   await page.getByTestId('type-filter-comfort').click();
-  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(2);
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(4);
 
-  await page.getByTestId('type-filter-all').click();
+  await page.getByTestId('difficulty-filter-进阶').click();
+  await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(2);
+  await page.getByRole('button', { name: '清除筛选' }).click();
   await page.getByTestId('progress-filter-completed').click();
   await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(0);
-  await expect(page.getByText('这个筛选下还没有关卡记录。')).toBeVisible();
+  await expect(page.getByText('没有符合条件的场景')).toBeVisible();
+});
+
+test('uses the new font system and selects a card before entering its briefing', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(
+    page.getByRole('link', { name: '关系修炼首页' }).locator('img'),
+  ).toBeVisible();
+
+  for (const asset of [
+    '/fonts/smiley-sans-display.woff2',
+    '/fonts/source-han-sans-sc-regular.woff2',
+    '/fonts/source-han-serif-sc-regular.woff2',
+    '/fonts/OFL-Smiley-Sans.txt',
+    '/fonts/OFL-Source-Han-Sans.txt',
+    '/fonts/OFL-Source-Han-Serif.txt',
+    '/brand/relationship-training-logo.svg',
+    '/favicon.svg',
+  ]) {
+    expect((await page.request.get(asset)).ok()).toBe(true);
+  }
+
+  const fonts = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return {
+      hero: getComputedStyle(
+        document.querySelector('.level-intro h1')!,
+      ).fontFamily,
+      card: getComputedStyle(
+        document.querySelector('.scenario-card__copy')!,
+      ).fontFamily,
+      scene: getComputedStyle(
+        document.querySelector('.scenario-preview h2')!,
+      ).fontFamily,
+    };
+  });
+  expect(fonts.hero).toContain('Relationship Display');
+  expect(fonts.card).toContain('Relationship Sans');
+  expect(fonts.scene).toContain('Relationship Serif');
+
+  await page.getByTestId('scenario-card-rejected-proposal').click();
+  await expect(page.getByTestId('scenario-preview')).toContainText(
+    '提案被否',
+  );
+  await expect(page.getByTestId('start-game')).toHaveCount(0);
+  await page.getByTestId('enter-scenario').click();
+  await expect(page.getByTestId('start-game')).toBeVisible();
 });
 
 test('selects modalities and requires an in-memory key for image generation', async ({
@@ -76,6 +133,7 @@ test('selects modalities and requires an in-memory key for image generation', as
   await page.getByRole('button', { name: '关闭模态设置' }).click();
 
   await page.getByTestId('scenario-card-weekend-market').click();
+  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('generated-media-image')).toBeVisible({
     timeout: 10_000,
@@ -98,6 +156,7 @@ test('renders an authored story hook as video in mock mode', async ({
   await page.getByTestId('unlock-media').click();
   await page.getByRole('button', { name: '关闭模态设置' }).click();
   await page.getByTestId('scenario-card-rain-check').click();
+  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('generated-media-video')).toBeVisible({
     timeout: 10_000,
@@ -109,6 +168,7 @@ test('enters and leaves a briefing and supports both player identities', async (
 }) => {
   await page.goto('./');
   await page.getByTestId('scenario-card-rejected-proposal').click();
+  await page.getByTestId('enter-scenario').click();
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '提案被否',
   );
@@ -131,6 +191,7 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
   test.setTimeout(90_000);
   await page.goto('./');
   await page.getByTestId('scenario-card-weekend-market').click();
+  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await playUntilResult(page, genericStrongLine, 5);
 
@@ -141,7 +202,7 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
     '已完成',
   );
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
-    '男 S',
+    '徐坤 S',
   );
 
   const stored = await page.evaluate(() =>
@@ -163,13 +224,15 @@ test('plays a repair scenario to its authored S ending', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('./');
   await page.getByTestId('scenario-card-party-joke').click();
+  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('choose-female').click();
   await page.getByTestId('start-game').click();
   await playUntilResult(page, repairStrongLine, 6);
 
   await expect(page.getByTestId('result-screen')).toContainText('并肩回场');
   await expect(page.getByTestId('result-screen')).toContainText('关系实干家');
-  await expect(page.getByTestId('result-usage')).toContainText('本局模型');
+  await expect(page.getByTestId('result-screen')).not.toContainText('tokens');
+  await expect(page.getByTestId('result-screen')).not.toContainText('评判 AI');
 });
 
 test('keeps legacy suitcase APIs compatible', async ({ page }) => {
@@ -235,6 +298,7 @@ test('keeps selection and gameplay usable at a mobile viewport', async ({
   await expect(page.getByTestId('output-mode-video')).toBeVisible();
   await page.getByRole('button', { name: '关闭模态设置' }).click();
   await page.getByTestId('scenario-card-rain-check').click();
+  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 
@@ -242,6 +306,41 @@ test('keeps selection and gameplay usable at a mobile viewport', async ({
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
   );
   expect(horizontalOverflow).toBe(false);
+});
+
+test('keeps one progress bar, complete history, and the unified composer', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByTestId('scenario-card-weekend-market').click();
+  await page.getByTestId('enter-scenario').click();
+  await page.getByTestId('start-game').click();
+
+  await expect(page.getByRole('progressbar')).toHaveCount(1);
+  await expect(page.getByText('事情发生之前')).toBeVisible();
+  await expect(
+    page.getByText(/最近总在下班后多聊十分钟/),
+  ).toBeVisible();
+  await expect(page.getByText('AI 角色')).toHaveCount(0);
+  await expect(page.getByText('文字输出')).toHaveCount(0);
+  await expect(page.getByText('AI 实时生成')).toHaveCount(0);
+
+  const openingLine = page.getByTestId('message-character').first();
+  await expect(openingLine).toBeVisible();
+  await expect(openingLine.locator('button')).toBeVisible();
+
+  await page.getByTestId('dialogue-input').fill('我想先听听你的想法');
+  await page.getByTestId('dialogue-input').press('Shift+Enter');
+  await page.getByTestId('dialogue-input').type('，然后一起定时间。');
+  await expect(page.getByTestId('dialogue-input')).toHaveValue(
+    '我想先听听你的想法\n，然后一起定时间。',
+  );
+  await page.getByTestId('dialogue-input').press('Enter');
+  await expect(page.getByTestId('message-player')).toContainText(
+    '我想先听听你的想法',
+  );
+  await expect(page.getByTestId('message-character')).toHaveCount(2);
+  await expect(page.getByRole('progressbar')).toHaveCount(1);
 });
 
 async function playUntilResult(

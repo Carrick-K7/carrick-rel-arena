@@ -64,9 +64,9 @@ export function GeneratedMedia({
         className="generated-media generated-media--mock-video"
         data-testid="generated-media-video"
       >
-        <span>本地视频演示</span>
+        <span>剧情镜头</span>
         <strong>{title}</strong>
-        <p>生产环境会在这里播放 Seedance 生成的 4 秒剧情镜头。</p>
+        <p>画面会跟随这一次关系变化继续展开。</p>
       </section>
     );
   }
@@ -79,13 +79,13 @@ export function GeneratedMedia({
       {kind === 'image' ? (
         <img
           src={generation.url}
-          alt={`${title}的 AI 生成剧情图像`}
+          alt={`${title}的剧情图像`}
           referrerPolicy="no-referrer"
         />
       ) : (
         <video
           src={generation.url}
-          aria-label={`${title}的 AI 生成剧情视频`}
+          aria-label={`${title}的剧情视频`}
           controls
           autoPlay
           muted
@@ -97,11 +97,6 @@ export function GeneratedMedia({
       <figcaption>
         <span>{label}</span>
         {title}
-        {generation.usageTokens !== null && generation.usageTokens > 0 && (
-          <small>
-            {generation.usageTokens.toLocaleString()} tokens
-          </small>
-        )}
       </figcaption>
     </figure>
   );

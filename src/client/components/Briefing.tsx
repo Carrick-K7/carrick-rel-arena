@@ -1,14 +1,13 @@
 import type {
   ActorPerformance,
-  Capabilities,
   Gender,
   ScenarioBriefing,
 } from '../../shared/contracts.js';
+import { BrandLogo } from './BrandLogo.js';
 import { Portrait } from './Portrait.js';
 
 interface BriefingProps {
   briefing: ScenarioBriefing;
-  capabilities: Capabilities | null;
   playerGender: Gender;
   starting: boolean;
   onPlayerGenderChange: (gender: Gender) => void;
@@ -39,7 +38,6 @@ const previewPerformance: ActorPerformance = {
 
 export function Briefing({
   briefing,
-  capabilities,
   playerGender,
   starting,
   onPlayerGenderChange,
@@ -55,13 +53,9 @@ export function Briefing({
           onClick={onBack}
           aria-label="返回关系修炼关卡"
         >
-          <span className="brand__mark">修</span>
-          <span><b>关系修炼</b></span>
+          <BrandLogo />
         </button>
-        <div className="provider-badge" data-testid="provider-badge">
-          <span className="provider-badge__dot" />
-          {providerLabel(capabilities)}
-        </div>
+        <span className="brand-bar__context">场景简报</span>
       </header>
 
       <section className="briefing-hero">
@@ -82,7 +76,7 @@ export function Briefing({
             <article className="briefing-section briefing-section--goal">
               <span>挑战目标</span>
               <h2>{briefing.goal}</h2>
-              <p>你可以自由表达。每一句都会改变关系温度、对话压力和结局。</p>
+              <p>你可以自由表达。每一句都会改变关系的走向和最终结局。</p>
             </article>
 
             <article className="briefing-section briefing-section--character">
@@ -171,12 +165,6 @@ export function Briefing({
       </section>
     </main>
   );
-}
-
-function providerLabel(capabilities: Capabilities | null): string {
-  if (!capabilities) return '连接中';
-  if (capabilities.textProvider === 'mock') return '本地模式';
-  return '在线角色';
 }
 
 function typeLabel(type: ScenarioBriefing['type']): string {

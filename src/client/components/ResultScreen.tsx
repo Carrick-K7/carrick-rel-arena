@@ -5,7 +5,12 @@ import type {
   PublicSession,
 } from '../../shared/contracts.js';
 import { GeneratedMedia } from './GeneratedMedia.js';
+import { BrandLogo } from './BrandLogo.js';
 import { Portrait } from './Portrait.js';
+import {
+  relationshipProgress,
+  relationshipProgressLabel,
+} from '../relationship-progress.js';
 
 interface ResultScreenProps {
   session: PublicSession;
@@ -29,6 +34,7 @@ export function ResultScreen({
   const [copied, setCopied] = useState(false);
   const verdict = session.verdict;
   if (!verdict) return null;
+  const finalProgress = relationshipProgress(session.state.metrics);
 
   async function copyResult() {
     await navigator.clipboard.writeText(verdict!.shareText);
@@ -48,8 +54,7 @@ export function ResultScreen({
           onClick={onBackToLevels}
           aria-label="返回关系修炼关卡"
         >
-          <span className="brand__mark">修</span>
-          <span><b>关系修炼</b></span>
+          <BrandLogo compact />
         </button>
         <span>单局记录已封存 · 关系状态到此为止</span>
       </header>
@@ -87,11 +92,6 @@ export function ResultScreen({
                 generation={mediaGeneration}
               />
             )}
-          <small data-testid="result-usage">
-            ◫ 本局模型 {session.usage.calls} 次 ·{' '}
-            {session.usage.totalTokens.toLocaleString()} tokens ·{' '}
-            {formatCost(session.usage.estimatedCostUsd)}
-          </small>
         </article>
 
         <div className="score-card">
@@ -99,16 +99,10 @@ export function ResultScreen({
             <strong>{verdict.score}</strong>
             <span>/ 100</span>
           </div>
-          <div>
-            <Metric
-              label="关系温度"
-              value={session.state.metrics.warmth}
-            />
-            <Metric
-              label="对话压力"
-              value={session.state.metrics.pressure}
-              danger
-            />
+          <div className="result-progress">
+            <span>最终关系进展</span>
+            <strong>{relationshipProgressLabel(finalProgress)}</strong>
+            <p>{finalProgress} / 100</p>
           </div>
         </div>
 
@@ -128,7 +122,7 @@ export function ResultScreen({
         <section className="review-panel">
           <div className="review-heading">
             <h2>关键对话复盘</h2>
-            <span>评判 AI / {verdict.keyMoments.length} 个转折</span>
+            <span>{verdict.keyMoments.length} 个转折</span>
           </div>
           <div className="review-list">
             {verdict.keyMoments.map((moment, index) => (
@@ -179,28 +173,4 @@ export function ResultScreen({
       </footer>
     </main>
   );
-}
-
-function Metric({
-  label,
-  value,
-  danger = false,
-}: {
-  label: string;
-  value: number;
-  danger?: boolean;
-}) {
-  return (
-    <div className={`result-metric ${danger ? 'is-danger' : ''}`}>
-      <span>{label}</span>
-      <div>
-        <i style={{ width: `${value}%` }} />
-      </div>
-      <b>{value}</b>
-    </div>
-  );
-}
-
-function formatCost(cost: number | null): string {
-  return cost === null ? '成本待定' : `估算 $${cost.toFixed(4)}`;
 }

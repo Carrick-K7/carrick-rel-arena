@@ -3,14 +3,25 @@ import { requestSpeech } from './api.js';
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
+let currentOnEnd: (() => void) | null = null;
+let playbackSerial = 0;
+
+interface PlaybackCallbacks {
+  onStart?: () => void;
+  onEnd?: () => void;
+}
 
 export async function speakLine(
   text: string,
   tone: Tone,
   speakerGender: Gender,
   sessionId: string | null,
+  callbacks: PlaybackCallbacks = {},
 ): Promise<void> {
   stopSpeaking();
+  const serial = playbackSerial;
+  currentOnEnd = callbacks.onEnd ?? null;
+  callbacks.onStart?.();
 
   try {
     const audioBlob = await requestSpeech(
@@ -19,16 +30,18 @@ export async function speakLine(
       speakerGender,
       sessionId,
     );
+    if (serial !== playbackSerial) return;
     if (audioBlob) {
       currentUrl = URL.createObjectURL(audioBlob);
       currentAudio = new Audio(currentUrl);
       currentAudio.addEventListener(
         'ended',
-        () => {
-          releaseAudio();
-        },
+        finishPlayback,
         { once: true },
       );
+      currentAudio.addEventListener('error', finishPlayback, {
+        once: true,
+      });
       await currentAudio.play();
       return;
     }
@@ -36,16 +49,21 @@ export async function speakLine(
     releaseAudio();
   }
 
-  speakWithBrowser(text, tone, speakerGender);
+  if (serial !== playbackSerial) return;
+  speakWithBrowser(text, tone, speakerGender, finishPlayback);
 }
 
 export function stopSpeaking(): void {
+  playbackSerial += 1;
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
   }
   releaseAudio();
   window.speechSynthesis?.cancel();
+  const onEnd = currentOnEnd;
+  currentOnEnd = null;
+  onEnd?.();
 }
 
 function releaseAudio() {
@@ -60,8 +78,12 @@ function speakWithBrowser(
   text: string,
   tone: Tone,
   speakerGender: Gender,
+  onEnd: () => void,
 ) {
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) {
+    onEnd();
+    return;
+  }
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
   utterance.rate =
@@ -78,7 +100,16 @@ function speakWithBrowser(
     voice.lang.toLowerCase().startsWith('zh'),
   );
   if (chineseVoice) utterance.voice = chineseVoice;
+  utterance.onend = onEnd;
+  utterance.onerror = onEnd;
   window.speechSynthesis.speak(utterance);
+}
+
+function finishPlayback() {
+  releaseAudio();
+  const onEnd = currentOnEnd;
+  currentOnEnd = null;
+  onEnd?.();
 }
 
 interface BrowserSpeechRecognitionEvent extends Event {
