@@ -457,15 +457,17 @@ function buildActorBrief(
   event: boolean,
 ): string {
   if (event) return '让转折事件进入现场，短暂暴露情绪，再把选择交还玩家。';
-  if (dismissive) return '冷到接近结束，用场景细节点出玩家仍未看见边界。';
+  if (dismissive) return '清楚说明贬低或越界造成的影响并收紧边界，不追加无关挑衅。';
   if (signals.understoodNeed && signals.proposedAction) {
-    return '出现动摇，用一个具体问题检验行动是否真实且可共同决定。';
+    return '自然承接已经给出的理解和行动；如仍缺关键信息，只中立确认一项，不重复追问已回答内容。';
   }
-  if (signals.understoodNeed) return '承认对方终于看见需要，仍要求继续说具体。';
+  if (signals.understoodNeed) {
+    return '承接玩家已经表达的理解；如确需具体信息，只提出一个清楚、非审问式的问题。';
+  }
   if (signals.respectedChoice) return '压力下降一格，表现选择权被归还后的松动。';
-  if (vulnerable) return '接受玩家的脆弱，但追问它如何转化为可靠行动。';
-  if (defensive) return '用一句贴合人物语言指纹的轻吐槽拆穿理由清单。';
-  return '保持戒备，用当前关卡的具体问题把焦点推回对方需要。';
+  if (vulnerable) return '接住玩家表达的脆弱，再平静说明角色当下真正需要什么。';
+  if (defensive) return '平静指出理由还没有回应到当前需要，不用吐槽或讽刺。';
+  return '中立承接当前回应；如确有关键缺口，具体说明缺少的一项信息，不为了制造阻力而挑刺。';
 }
 
 function selectKeyMoments(

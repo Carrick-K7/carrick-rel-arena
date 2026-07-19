@@ -46,7 +46,7 @@ export class GameAgents {
       input: {
         scenarioFacts: createScenarioFacts(context.briefing),
         currentState: context.state,
-        recentTranscript: context.transcript.slice(-6),
+        transcript: context.transcript,
         playerLine: context.playerLine,
         round: context.round,
         roundsLeftAfterThis: context.roundsLeftAfterThis,
@@ -67,7 +67,7 @@ export class GameAgents {
         directorBrief: context.director.actorBrief,
         stateAfterDirector: context.state,
         latestPlayerLine: context.playerLine,
-        recentTranscript: context.transcript.slice(-6),
+        transcript: context.transcript,
         activeEvent: context.activeEvent,
         appliedStateChanges: context.director.delta,
       },
