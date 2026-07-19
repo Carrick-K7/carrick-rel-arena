@@ -379,7 +379,9 @@ figure {
   border-top: 1px solid var(--line-soft);
 }
 
-.modality-group legend {
+.modality-group legend,
+.modality-group h2 {
+  margin: 0;
   padding: 0;
   font-family: var(--font-serif);
   font-size: 19px;
@@ -402,6 +404,58 @@ figure {
 
 .modality-options--output {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.input-capabilities {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.input-capabilities article {
+  display: grid;
+  min-height: 82px;
+  padding: 15px 14px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: #fbfefd;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.input-capabilities article > span {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--accent);
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.input-capabilities strong,
+.input-capabilities small {
+  display: block;
+}
+
+.input-capabilities strong {
+  font-size: 15px;
+}
+
+.input-capabilities small {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.input-capabilities .is-unavailable {
+  opacity: 0.54;
 }
 
 .modality-option {
@@ -438,6 +492,12 @@ figure {
     0 4px 14px rgba(30, 56, 53, 0.07);
 }
 
+.modality-option.is-fixed,
+.modality-option.is-fixed:hover {
+  cursor: default;
+  transform: none;
+}
+
 .modality-option:disabled {
   cursor: default;
   opacity: 0.46;
@@ -450,12 +510,23 @@ figure {
   width: 14px;
   height: 14px;
   border: 1px solid #a7bdb9;
-  border-radius: 50%;
+  border-radius: 4px;
   background: #fff;
 }
 
 .modality-option.is-selected .modality-option__indicator {
-  border: 4px solid var(--accent);
+  display: grid;
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+  place-items: center;
+}
+
+.modality-option.is-selected .modality-option__indicator::after {
+  content: "✓";
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .modality-option strong {
@@ -826,7 +897,7 @@ figure {
 .level-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 20px;
   padding-top: 25px;
   color: var(--faint);
@@ -2677,7 +2748,8 @@ figure {
   }
 
   .modality-options,
-  .modality-options--output {
+  .modality-options--output,
+  .input-capabilities {
     grid-template-columns: 1fr;
   }
 
@@ -2846,18 +2918,9 @@ figure {
 .level-intro {
   display: grid;
   max-width: none;
-  padding: clamp(50px, 6vw, 84px) 0 36px;
+  padding: clamp(50px, 6vw, 84px) 0 clamp(40px, 5vw, 62px);
   grid-template-columns: minmax(520px, 0.95fr) minmax(260px, 0.55fr);
   column-gap: clamp(50px, 8vw, 120px);
-}
-
-.level-intro .eyebrow {
-  grid-column: 1 / -1;
-  margin-bottom: 16px;
-  color: var(--accent-dark);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
 }
 
 .level-intro h1 {
@@ -2868,53 +2931,54 @@ figure {
   letter-spacing: 0.015em;
 }
 
-.level-intro > p:last-child {
-  max-width: 350px;
-  align-self: end;
-  padding-bottom: 3px;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.85;
-}
-
-.benefit-strip {
+.level-intro__advantages {
   display: grid;
-  margin-bottom: 42px;
+  align-self: center;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  grid-template-columns: repeat(4, 1fr);
 }
 
-.benefit-strip article {
+.level-intro__advantages article {
   display: grid;
-  min-height: 88px;
-  padding: 18px clamp(16px, 2vw, 26px);
-  align-content: center;
-  gap: 4px;
-  border-right: 1px solid var(--line);
+  padding: 14px 0;
+  align-items: start;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 13px;
+  border-top: 1px solid var(--line-soft);
 }
 
-.benefit-strip article:first-child {
-  padding-left: 0;
+.level-intro__advantages article:first-child {
+  border-top: 0;
 }
 
-.benefit-strip article:last-child {
-  border-right: 0;
+.level-intro__advantages i {
+  padding-top: 2px;
+  color: var(--accent-dark);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-style: normal;
 }
 
-.benefit-strip strong {
+.level-intro__advantages h2 {
+  margin: 0;
+  font-family: var(--font-sans);
   font-size: 14px;
+  font-weight: 750;
 }
 
-.benefit-strip span {
+.level-intro__advantages p {
+  margin-top: 3px;
   color: var(--faint);
   font-size: 12px;
+  line-height: 1.62;
 }
 
 .scenario-browser {
   display: grid;
   min-height: 670px;
+  padding-top: 36px;
   gap: 22px;
+  border-top: 1px solid var(--line);
   grid-template-areas:
     "filters list preview";
   grid-template-columns: minmax(170px, 0.34fr) minmax(390px, 0.92fr) minmax(360px, 0.8fr);
@@ -3224,8 +3288,8 @@ figure {
 }
 
 .scenario-preview__opponent {
-  margin-top: 24px;
-  padding-top: 20px;
+  margin-top: 32px;
+  padding-top: 28px;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -3233,7 +3297,7 @@ figure {
   display: flex;
   width: 100%;
   min-height: 50px;
-  margin-top: auto;
+  margin-top: 30px;
   padding: 0 19px;
   align-items: center;
   justify-content: space-between;
@@ -4138,23 +4202,17 @@ figure {
   }
 
   .level-intro {
-    display: block;
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 
-  .level-intro > p:last-child {
-    margin-top: 23px;
+  .level-intro__advantages {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
   }
 
-  .benefit-strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .benefit-strip article:nth-child(2) {
-    border-right: 0;
-  }
-
-  .benefit-strip article:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line);
+  .level-intro__advantages article {
+    border-top: 0;
   }
 
   .scenario-browser {
@@ -4258,34 +4316,30 @@ figure {
 
   .level-intro {
     padding: 42px 0 30px;
+    gap: 24px;
   }
 
   .level-intro h1 {
     font-size: clamp(48px, 15vw, 67px);
   }
 
-  .level-intro > p:last-child {
-    font-size: 14px;
+  .level-intro__advantages {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
-  .benefit-strip {
-    margin-bottom: 26px;
+  .level-intro__advantages article,
+  .level-intro__advantages article:first-child {
+    padding: 12px 0;
+    border-top: 1px solid var(--line-soft);
   }
 
-  .benefit-strip article {
-    min-height: 78px;
-    padding: 13px 12px;
-  }
-
-  .benefit-strip article:first-child {
-    padding-left: 12px;
-  }
-
-  .benefit-strip strong {
-    font-size: 13px;
+  .level-intro__advantages article:first-child {
+    border-top: 0;
   }
 
   .scenario-browser {
+    padding-top: 22px;
     gap: 13px;
   }
 
@@ -4344,7 +4398,7 @@ figure {
   }
 
   .level-footer {
-    align-items: flex-start;
+    align-items: flex-end;
   }
 
   .game-screen {

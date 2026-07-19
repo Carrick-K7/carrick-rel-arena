@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_MODALITIES,
   MODALITY_STORAGE_KEY,
+  hasOutput,
   loadModalities,
   saveModalities,
+  toggleOutput,
+  withOutput,
 } from './modalities.js';
 
 const storage = new Map<string, string>();
@@ -35,14 +38,35 @@ describe('modality preferences', () => {
     expect(loadModalities()).toEqual(DEFAULT_MODALITIES);
   });
 
-  it('stores only selected modes', () => {
-    saveModalities({ input: 'voice', output: 'video' });
+  it('stores several outputs while text remains mandatory', () => {
+    saveModalities({ outputs: ['text', 'voice', 'image', 'video'] });
     expect(loadModalities()).toEqual({
-      input: 'voice',
-      output: 'video',
+      outputs: ['text', 'voice', 'image', 'video'],
     });
     expect(storage.get(MODALITY_STORAGE_KEY)).toBe(
-      '{"input":"voice","output":"video"}',
+      '{"outputs":["text","voice","image","video"]}',
     );
+  });
+
+  it('migrates the old single output and drops the old input choice', () => {
+    storage.set(
+      MODALITY_STORAGE_KEY,
+      JSON.stringify({ input: 'voice', output: 'video' }),
+    );
+    expect(loadModalities()).toEqual({
+      outputs: ['text', 'video'],
+    });
+  });
+
+  it('toggles optional outputs without allowing text to be removed', () => {
+    const voice = withOutput(DEFAULT_MODALITIES, 'voice');
+    expect(hasOutput(voice, 'voice')).toBe(true);
+    const combined = toggleOutput(voice, 'image');
+    expect(combined.outputs).toEqual(['text', 'voice', 'image']);
+    expect(toggleOutput(combined, 'voice').outputs).toEqual([
+      'text',
+      'image',
+    ]);
+    expect(toggleOutput(combined, 'text')).toBe(combined);
   });
 });

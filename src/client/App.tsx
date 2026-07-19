@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   Capabilities,
   Gender,
-  InputMode,
   MediaGeneration,
   OutputMode,
   PublicSession,
@@ -29,9 +28,12 @@ import { ModalitySettings } from './components/ModalitySettings.js';
 import { ResultScreen } from './components/ResultScreen.js';
 import { ScenarioSelect } from './components/ScenarioSelect.js';
 import {
+  hasOutput,
   loadModalities,
   saveModalities,
+  toggleOutput,
   type ModalityPreferences,
+  withOutput,
 } from './modalities.js';
 import {
   clearProgress,
@@ -129,10 +131,10 @@ export function App() {
   }, [screen]);
 
   useEffect(() => {
-    const output = modalities.output;
     if (
       !session ||
-      (output !== 'image' && output !== 'video') ||
+      (!hasOutput(modalities, 'image') &&
+        !hasOutput(modalities, 'video')) ||
       !mediaUnlocked ||
       !mediaAccessKey
     ) {
@@ -195,7 +197,7 @@ export function App() {
   }, [
     mediaAccessKey,
     mediaUnlocked,
-    modalities.output,
+    modalities.outputs,
     session,
   ]);
 
@@ -203,7 +205,7 @@ export function App() {
     if (
       !session ||
       session.state.phase !== 'result' ||
-      modalities.output !== 'video' ||
+      !hasOutput(modalities, 'video') ||
       !mediaUnlocked ||
       !mediaAccessKey
     ) {
@@ -277,7 +279,7 @@ export function App() {
     mediaAccessKey,
     mediaByKey,
     mediaUnlocked,
-    modalities.output,
+    modalities.outputs,
     session,
   ]);
 
@@ -340,7 +342,7 @@ export function App() {
       setPendingLine(null);
       setMediaByKey({});
       requestedMediaRef.current.clear();
-      if (modalities.output === 'voice') playSessionLine(nextSession);
+      if (hasOutput(modalities, 'voice')) playSessionLine(nextSession);
     } catch (startError) {
       setError(errorMessage(startError));
     } finally {
@@ -363,7 +365,7 @@ export function App() {
       const result = await playTurn(session.state.sessionId, text);
       setSession(result.session);
       setPendingLine(null);
-      if (modalities.output === 'voice') {
+      if (hasOutput(modalities, 'voice')) {
         playSessionLine(result.session);
       }
       if (
@@ -400,9 +402,6 @@ export function App() {
       setRecording(false);
       return;
     }
-    if (modalities.input !== 'voice') {
-      updateModalities({ ...modalities, input: 'voice' });
-    }
     setRecording(true);
     stopRecognitionRef.current = startSpeechInput(
       (text) => setDraft(text.slice(0, 240)),
@@ -433,22 +432,14 @@ export function App() {
     setProgress(clearProgress());
   }
 
-  function changeInputMode(input: InputMode) {
-    if (input === 'text' && recording) {
-      stopRecognitionRef.current?.();
-      stopRecognitionRef.current = null;
-      setRecording(false);
-    }
-    updateModalities({ ...modalities, input });
-  }
-
-  function changeOutputMode(output: OutputMode) {
-    if (output !== 'voice') {
+  function toggleOutputMode(output: OutputMode) {
+    const enabled = hasOutput(modalities, output);
+    if (output === 'voice' && enabled) {
       stopSpeaking();
       setSpeakingEntryId(null);
     }
-    updateModalities({ ...modalities, output });
-    if (output === 'voice' && session) {
+    updateModalities(toggleOutput(modalities, output));
+    if (output === 'voice' && !enabled && session) {
       playSessionLine(session);
     }
   }
@@ -511,7 +502,7 @@ export function App() {
     await verifyMediaAccess(accessKey);
     setMediaAccessKey(accessKey);
     setMediaUnlocked(true);
-    updateModalities({ ...modalities, output });
+    updateModalities(withOutput(modalities, output));
   }
 
   if (!scenarios) {
@@ -534,7 +525,8 @@ export function App() {
   const latestImage =
     session &&
     latestBeat &&
-    (modalities.output === 'image' || modalities.output === 'video')
+    (hasOutput(modalities, 'image') ||
+      hasOutput(modalities, 'video'))
       ? (mediaByKey[
           mediaKey(session.state.sessionId, latestBeat.id, 'image')
         ] ?? null)
@@ -542,7 +534,7 @@ export function App() {
   const memoryVideo =
     session &&
     latestBeat &&
-    modalities.output === 'video' &&
+    hasOutput(modalities, 'video') &&
     session.state.phase === 'result'
       ? (mediaByKey[
           mediaKey(session.state.sessionId, latestBeat.id, 'video')
@@ -554,7 +546,7 @@ export function App() {
     content = (
       <ResultScreen
         session={session}
-        outputMode={modalities.output}
+        outputModes={modalities.outputs}
         visualBeat={latestBeat}
         imageGeneration={latestImage}
         memoryVideoGeneration={memoryVideo}
@@ -571,7 +563,7 @@ export function App() {
         pendingLine={pendingLine}
         busy={busy}
         error={error}
-        outputMode={modalities.output}
+        outputModes={modalities.outputs}
         visualBeat={latestBeat}
         imageGeneration={latestImage}
         recording={recording}
@@ -641,8 +633,7 @@ export function App() {
         preferences={modalities}
         speechInputSupported={speechInputSupported}
         mediaUnlocked={mediaUnlocked}
-        onInputChange={changeInputMode}
-        onOutputChange={changeOutputMode}
+        onOutputToggle={toggleOutputMode}
         onUnlockMedia={unlockMedia}
         onClose={() => setSettingsOpen(false)}
       />

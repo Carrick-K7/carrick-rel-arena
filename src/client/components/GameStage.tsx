@@ -20,7 +20,7 @@ interface GameStageProps {
   pendingLine: string | null;
   busy: boolean;
   error: string | null;
-  outputMode: OutputMode;
+  outputModes: OutputMode[];
   visualBeat: VisualBeat | null;
   imageGeneration: MediaGeneration | null;
   recording: boolean;
@@ -40,7 +40,7 @@ export function GameStage({
   pendingLine,
   busy,
   error,
-  outputMode,
+  outputModes,
   visualBeat,
   imageGeneration,
   recording,
@@ -316,7 +316,7 @@ export function GameStage({
       <section className="opponent-stage" aria-label="对方形象">
         <OpponentVisual
           session={session}
-          outputMode={outputMode}
+          outputModes={outputModes}
           visualBeat={visualBeat}
           imageGeneration={imageGeneration}
         />
@@ -327,17 +327,18 @@ export function GameStage({
 
 function OpponentVisual({
   session,
-  outputMode,
+  outputModes,
   visualBeat,
   imageGeneration,
 }: {
   session: PublicSession;
-  outputMode: OutputMode;
+  outputModes: OutputMode[];
   visualBeat: VisualBeat | null;
   imageGeneration: MediaGeneration | null;
 }) {
   const mediaRequested =
-    (outputMode === 'image' || outputMode === 'video') && visualBeat;
+    (outputModes.includes('image') || outputModes.includes('video')) &&
+    visualBeat;
   const mediaSucceeded =
     Boolean(mediaRequested) && imageGeneration?.status === 'succeeded';
 

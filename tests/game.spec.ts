@@ -35,6 +35,17 @@ test('shows all eight open scenarios and filters by type and progress', async ({
   ).toBeVisible();
   await expect(page.getByText('Relationship Arena')).toHaveCount(0);
   await expect(page.getByText('在线角色')).toHaveCount(0);
+  await expect(page.getByText('八次对话 · 八种靠近')).toHaveCount(0);
+  await expect(
+    page.getByText('在一次次真实对话里，练习理解、表达与修复。'),
+  ).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '真实场景' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '自由表达' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '多模态演出' })).toBeVisible();
+  await expect(page.getByText('当前伴侣')).toBeVisible();
+  await expect(
+    page.getByText('本机只保存完成记录、分身份最佳成绩和已见结局。'),
+  ).toHaveCount(0);
   await expect(page.locator('[data-testid^="scenario-card-"]')).toHaveCount(8);
 
   await page.getByTestId('type-filter-invitation').click();
@@ -112,7 +123,12 @@ test('selects modalities and requires an in-memory key for image generation', as
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await expect(page.getByTestId('modality-settings')).toBeVisible();
-  await expect(page.getByTestId('input-mode-text')).toHaveAttribute(
+  await expect(page.getByTestId('input-mode-text')).toContainText(
+    '随时键入或修改内容',
+  );
+  await expect(page.getByTestId('input-mode-voice')).toBeVisible();
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByTestId('output-mode-text')).toHaveAttribute(
     'aria-checked',
     'true',
   );
@@ -133,6 +149,20 @@ test('selects modalities and requires an in-memory key for image generation', as
     'aria-checked',
     'true',
   );
+  await expect(page.getByTestId('output-mode-voice')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('output-mode-video').click();
+  await expect(page.getByTestId('output-mode-video')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByTestId('output-mode-image')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByTestId('output-mode-video').click();
   await page.getByRole('button', { name: '关闭模态设置' }).click();
 
   await page.getByTestId('scenario-card-weekend-market').click();

@@ -56,11 +56,19 @@ const completionFilters: Array<{
   { value: 'completed', label: '已完成' },
 ];
 
-const benefits = [
-  ['自由表达', '不选台词'],
-  ['八段关系', '真实场景'],
-  ['多模态演出', '文字 · 语音 · 影像'],
-  ['隐私优先', '进度只留本机'],
+const advantages = [
+  [
+    '真实场景',
+    '邀约、安慰、磨合与修复，来自日常关系里的真实难题。',
+  ],
+  [
+    '自由表达',
+    '不选预设台词，用自己的话试探、解释或靠近。',
+  ],
+  [
+    '多模态演出',
+    '文字、语音与实时影像组合，让回应拥有表情与声音。',
+  ],
 ] as const;
 
 export function ScenarioSelect({
@@ -130,18 +138,21 @@ export function ScenarioSelect({
       </header>
 
       <section className="level-intro">
-        <p className="eyebrow">八次对话 · 八种靠近</p>
         <h1>把关系练成<br />两个人的功课</h1>
-        <p>在一次次真实对话里，练习理解、表达与修复。</p>
-      </section>
-
-      <section className="benefit-strip" aria-label="玩法特点">
-        {benefits.map(([title, detail]) => (
-          <article key={title}>
-            <strong>{title}</strong>
-            <span>{detail}</span>
-          </article>
-        ))}
+        <div
+          className="level-intro__advantages"
+          aria-label="关系修炼的核心优势"
+        >
+          {advantages.map(([title, detail], index) => (
+            <article key={title}>
+              <i aria-hidden="true">0{index + 1}</i>
+              <div>
+                <h2>{title}</h2>
+                <p>{detail}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       {error && (
@@ -349,7 +360,7 @@ export function ScenarioSelect({
                 </article>
               </div>
               <div className="scenario-preview__opponent">
-                <span>当前对手</span>
+                <span>当前伴侣</span>
                 <strong>{selectedBriefing.character.name}</strong>
                 <p>{selectedBriefing.character.personality}</p>
               </div>
@@ -369,7 +380,6 @@ export function ScenarioSelect({
       </section>
 
       <footer className="level-footer">
-        <p>本机只保存完成记录、分身份最佳成绩和已见结局。</p>
         <button type="button" onClick={confirmClear}>
           清除本机进度
         </button>

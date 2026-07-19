@@ -332,7 +332,11 @@ if (isProduction) {
       etag: true,
       maxAge: '1h',
       setHeaders(response, assetPath) {
-        if (assetPath.includes(`${path.sep}assets${path.sep}`)) {
+        if (assetPath.endsWith(`${path.sep}index.html`)) {
+          response.setHeader('Cache-Control', 'public, no-cache');
+        } else if (
+          assetPath.includes(`${path.sep}assets${path.sep}`)
+        ) {
           response.setHeader(
             'Cache-Control',
             'public, max-age=31536000, immutable',
@@ -342,6 +346,7 @@ if (isProduction) {
     }),
   );
   app.get('/*splat', (_request, response) => {
+    response.setHeader('Cache-Control', 'public, no-cache');
     response.sendFile(path.join(clientDir, 'index.html'));
   });
 } else {

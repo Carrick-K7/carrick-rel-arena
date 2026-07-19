@@ -16,7 +16,7 @@ import {
 
 interface ResultScreenProps {
   session: PublicSession;
-  outputMode: OutputMode;
+  outputModes: OutputMode[];
   visualBeat: VisualBeat | null;
   imageGeneration: MediaGeneration | null;
   memoryVideoGeneration: MediaGeneration | null;
@@ -27,7 +27,7 @@ interface ResultScreenProps {
 
 export function ResultScreen({
   session,
-  outputMode,
+  outputModes,
   visualBeat,
   imageGeneration,
   memoryVideoGeneration,
@@ -39,6 +39,8 @@ export function ResultScreen({
   const verdict = session.verdict;
   if (!verdict) return null;
   const finalProgress = relationshipProgress(session.state.metrics);
+  const imageEnabled = outputModes.includes('image');
+  const videoEnabled = outputModes.includes('video');
 
   async function copyResult() {
     await navigator.clipboard.writeText(verdict!.shareText);
@@ -88,7 +90,7 @@ export function ResultScreen({
         <article className="epilogue">
           <span>结局现场</span>
           <p>{verdict.epilogue}</p>
-          {outputMode === 'image' &&
+          {imageEnabled &&
             visualBeat &&
             imageGeneration?.status === 'succeeded' && (
               <MemoryFrame
@@ -97,7 +99,7 @@ export function ResultScreen({
                 generation={imageGeneration}
               />
             )}
-          {outputMode === 'image' &&
+          {imageEnabled &&
             visualBeat &&
             imageGeneration?.status !== 'succeeded' && (
               <GeneratedMedia
@@ -106,7 +108,7 @@ export function ResultScreen({
                 generation={imageGeneration}
               />
             )}
-          {outputMode === 'video' && visualBeat && (
+          {videoEnabled && visualBeat && (
             <section className="memory-film" aria-label="本局回忆">
               <div className="memory-film__heading">
                 <span>本局回忆</span>

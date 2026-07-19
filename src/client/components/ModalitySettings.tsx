@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import type {
   Capabilities,
-  InputMode,
   OutputMode,
 } from '../../shared/contracts.js';
-import type { ModalityPreferences } from '../modalities.js';
+import {
+  hasOutput,
+  type ModalityPreferences,
+} from '../modalities.js';
 
 interface ModalitySettingsProps {
   open: boolean;
@@ -12,8 +14,7 @@ interface ModalitySettingsProps {
   preferences: ModalityPreferences;
   speechInputSupported: boolean;
   mediaUnlocked: boolean;
-  onInputChange: (mode: InputMode) => void;
-  onOutputChange: (mode: OutputMode) => void;
+  onOutputToggle: (mode: OutputMode) => void;
   onUnlockMedia: (
     accessKey: string,
     output: 'image' | 'video',
@@ -27,8 +28,7 @@ export function ModalitySettings({
   preferences,
   speechInputSupported,
   mediaUnlocked,
-  onInputChange,
-  onOutputChange,
+  onOutputToggle,
   onUnlockMedia,
   onClose,
 }: ModalitySettingsProps) {
@@ -60,13 +60,14 @@ export function ModalitySettings({
     setUnlockError(null);
     if (
       (mode === 'image' || mode === 'video') &&
-      !mediaUnlocked
+      !mediaUnlocked &&
+      !hasOutput(preferences, mode)
     ) {
       setRequestedMedia(mode);
       return;
     }
     setRequestedMedia(null);
-    onOutputChange(mode);
+    onOutputToggle(mode);
   }
 
   async function unlock() {
@@ -120,48 +121,49 @@ export function ModalitySettings({
           </button>
         </header>
 
-        <fieldset className="modality-group">
-          <legend>输入方式</legend>
-          <p>选择你主要用什么方式回应；语音识别后仍可编辑文字。</p>
-          <div className="modality-options">
-            <ModalityOption
-              name="input-mode"
-              value="text"
-              title="文字"
-              detail="键盘自由输入"
-              selected={preferences.input === 'text'}
-              onSelect={() => onInputChange('text')}
-              testId="input-mode-text"
-            />
-            <ModalityOption
-              name="input-mode"
-              value="voice"
-              title="语音"
-              detail={
-                speechInputSupported
-                  ? '浏览器实时转写'
-                  : '当前浏览器不支持'
-              }
-              selected={preferences.input === 'voice'}
-              disabled={!speechInputSupported}
-              onSelect={() => onInputChange('voice')}
-              testId="input-mode-voice"
-            />
+        <section className="modality-group modality-inputs">
+          <h2>输入方式</h2>
+          <p>无需切换。键盘输入和语音转写始终同时保留。</p>
+          <div className="input-capabilities">
+            <article data-testid="input-mode-text">
+              <span aria-hidden="true">✓</span>
+              <div>
+                <strong>文字输入</strong>
+                <small>随时键入或修改内容</small>
+              </div>
+            </article>
+            <article
+              className={speechInputSupported ? '' : 'is-unavailable'}
+              data-testid="input-mode-voice"
+            >
+              <span aria-hidden="true">
+                {speechInputSupported ? '✓' : '—'}
+              </span>
+              <div>
+                <strong>语音转写</strong>
+                <small>
+                  {speechInputSupported
+                    ? '说完后仍可编辑文字'
+                    : '当前浏览器暂不支持'}
+                </small>
+              </div>
+            </article>
           </div>
-        </fieldset>
+        </section>
 
         <fieldset className="modality-group">
           <legend>输出方式</legend>
           <p>
-            每次选择一种主要演出方式。所有模式都保留文字字幕，方便复盘。
+            可同时启用多种演出。文字始终保留，语音与影像按需叠加。
           </p>
           <div className="modality-options modality-options--output">
             <ModalityOption
               name="output-mode"
               value="text"
               title="文字"
-              detail="最快、零额外媒体成本"
-              selected={preferences.output === 'text'}
+              detail="始终保留，方便阅读与复盘"
+              selected
+              fixed
               onSelect={() => chooseOutput('text')}
               testId="output-mode-text"
             />
@@ -170,7 +172,7 @@ export function ModalitySettings({
               value="voice"
               title="语音"
               detail="自动朗读角色回应"
-              selected={preferences.output === 'voice'}
+              selected={hasOutput(preferences, 'voice')}
               onSelect={() => chooseOutput('voice')}
               testId="output-mode-voice"
             />
@@ -183,7 +185,7 @@ export function ModalitySettings({
                   ? '开场与每轮实时生成'
                   : '服务端尚未配置'
               }
-              selected={preferences.output === 'image'}
+              selected={hasOutput(preferences, 'image')}
               locked={!mediaUnlocked}
               disabled={!imageAvailable}
               onSelect={() => chooseOutput('image')}
@@ -198,7 +200,7 @@ export function ModalitySettings({
                   ? '逐轮图片＋结算回忆短片'
                   : '服务端尚未配置'
               }
-              selected={preferences.output === 'video'}
+              selected={hasOutput(preferences, 'video')}
               locked={!mediaUnlocked}
               disabled={!videoAvailable}
               onSelect={() => chooseOutput('video')}
@@ -249,17 +251,6 @@ export function ModalitySettings({
             )}
           </section>
         )}
-
-        <footer className="settings-footer">
-          <span>
-            当前：
-            {inputLabel(preferences.input)}输入 ·{' '}
-            {outputLabel(preferences.output)}输出
-          </span>
-          <small>
-            媒体会临时使用对话上下文，不保存正文或生成结果。
-          </small>
-        </footer>
       </section>
     </div>
   );
@@ -271,6 +262,7 @@ function ModalityOption({
   title,
   detail,
   selected,
+  fixed = false,
   locked = false,
   disabled = false,
   onSelect,
@@ -281,6 +273,7 @@ function ModalityOption({
   title: string;
   detail: string;
   selected: boolean;
+  fixed?: boolean;
   locked?: boolean;
   disabled?: boolean;
   onSelect: () => void;
@@ -292,15 +285,16 @@ function ModalityOption({
       className={[
         'modality-option',
         selected ? 'is-selected' : '',
+        fixed ? 'is-fixed' : '',
         locked && !disabled ? 'is-locked' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      role="radio"
+      role="checkbox"
       aria-checked={selected}
-      aria-disabled={disabled}
+      aria-disabled={disabled || fixed}
       disabled={disabled}
-      onClick={onSelect}
+      onClick={fixed ? undefined : onSelect}
       data-name={name}
       data-value={value}
       data-testid={testId}
@@ -311,17 +305,4 @@ function ModalityOption({
       {locked && !disabled && <i>需密钥</i>}
     </button>
   );
-}
-
-function inputLabel(mode: InputMode): string {
-  return mode === 'voice' ? '语音' : '文字';
-}
-
-function outputLabel(mode: OutputMode): string {
-  return {
-    text: '文字',
-    voice: '语音',
-    image: '图像',
-    video: '视频',
-  }[mode];
 }

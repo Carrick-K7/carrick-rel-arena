@@ -95,7 +95,7 @@ export function Briefing({
             <fieldset className="briefing-section role-picker">
               <legend>扮演选择</legend>
               <p className="role-picker__intro">
-                选择你的角色，对手会自动切换。
+                选择你的角色，伴侣会自动切换。
               </p>
               <div>
                 <button
@@ -120,7 +120,7 @@ export function Briefing({
                 </button>
               </div>
               <p className="role-picker__opponent">
-                当前对手：{briefing.character.name} ·{' '}
+                当前伴侣：{briefing.character.name} ·{' '}
                 {briefing.character.gender === 'female' ? '女生' : '男生'}
               </p>
             </fieldset>
