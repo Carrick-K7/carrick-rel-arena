@@ -7,6 +7,8 @@ const repairStrongLine =
   '我知道把你信任我才说的私事公开，是我越界，也让你在大家面前难堪。我现在先在群里叫停、要求删除并道歉；是否回去由你决定，我会陪你一起处理。';
 const mediaAccessKey =
   process.env.E2E_MEDIA_ACCESS_KEY ?? 'test-media-key';
+const externalMedia = process.env.E2E_EXTERNAL === '1';
+const mediaGenerationTimeout = externalMedia ? 360_000 : 10_000;
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -106,6 +108,7 @@ test('uses the new font system and selects a card before entering its briefing',
 test('selects modalities and requires an in-memory key for image generation', async ({
   page,
 }) => {
+  if (externalMedia) test.setTimeout(480_000);
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await expect(page.getByTestId('modality-settings')).toBeVisible();
@@ -136,8 +139,23 @@ test('selects modalities and requires an in-memory key for image generation', as
   await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('generated-media-image')).toBeVisible({
-    timeout: 10_000,
+    timeout: mediaGenerationTimeout,
   });
+  const openingBeat = await page
+    .getByTestId('generated-media-image')
+    .getAttribute('data-visual-beat');
+  const line = '我想先理解你的感受，再一起定一个具体时间。';
+  await page.getByTestId('dialogue-input').fill(line);
+  await page.getByTestId('send-line').click();
+  await expect(page.getByTestId('generated-media-image')).not.toHaveAttribute(
+    'data-visual-beat',
+    openingBeat!,
+    { timeout: mediaGenerationTimeout },
+  );
+  await expect(page.getByTestId('generated-media-image')).toContainText(line);
+  await expect(page.getByTestId('generated-media-image')).toContainText(
+    /秋雾/,
+  );
 
   const stored = await page.evaluate(() =>
     JSON.stringify(window.localStorage),
@@ -146,9 +164,10 @@ test('selects modalities and requires an in-memory key for image generation', as
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 });
 
-test('renders an authored story hook as video in mock mode', async ({
+test('uses per-turn images and creates one whole-session memory film', async ({
   page,
 }) => {
+  test.setTimeout(externalMedia ? 480_000 : 90_000);
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await page.getByTestId('output-mode-video').click();
@@ -158,9 +177,17 @@ test('renders an authored story hook as video in mock mode', async ({
   await page.getByTestId('scenario-card-rain-check').click();
   await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
-  await expect(page.getByTestId('generated-media-video')).toBeVisible({
-    timeout: 10_000,
+  await expect(page.getByTestId('generated-media-image')).toBeVisible({
+    timeout: mediaGenerationTimeout,
   });
+  await expect(page.getByTestId('generated-media-video')).toHaveCount(0);
+  await playUntilResult(page, genericStrongLine, 5);
+  await expect(page.getByTestId('generated-media-video')).toBeVisible({
+    timeout: mediaGenerationTimeout,
+  });
+  await expect(page.getByLabel('本局回忆')).toContainText(
+    /第 \d 轮/,
+  );
 });
 
 test('enters and leaves a briefing and supports both player identities', async ({

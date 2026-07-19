@@ -46,7 +46,7 @@ Express Orchestrator
   │    └─ Ark Seedream / Seedance
   ├─ Usage ledger + pricing estimator
   ├─ Budget/error alerts + optional webhook
-  └─ Authored opening / turning / ending media hooks
+  └─ Server-issued visual beats + ending memory film
 ```
 
 ### 三 Agent 分工
@@ -218,7 +218,7 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 | POST | `/api/sessions/:id/turns` | 提交玩家台词并完成一回合 |
 | POST | `/api/speech` | 把角色台词转换为 AI 音频 |
 | POST | `/api/media/access` | 校验页面媒体访问密钥，不返回供应商凭证 |
-| POST | `/api/media/generations` | 从当前会话的有效剧情 Hook 创建图像或视频任务 |
+| POST | `/api/media/generations` | 从当前会话的服务端视觉节拍创建逐轮图像或结算回忆视频 |
 | GET | `/api/media/generations/:id` | 查询当前进程内的媒体生成状态与结果 URL |
 | GET | `/api/admin/usage` | 当日模型/TTS 聚合、阈值与最近告警 |
 | GET | `/api/admin/metrics` | Prometheus 文本指标 |
@@ -267,9 +267,11 @@ DeepSeek 文本方案搭配小米 MiMo、OpenAI TTS 或浏览器系统语音。�
 
 ### 火山方舟媒体生成边界
 
-玩家触发的动态图像使用 Seedream，动态视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。媒体服务只接受 `sessionId + hookId + kind`，再从当前权威会话读取作者预设提示词，拒绝客户端自定义 Prompt。相同会话、Hook 和媒体类型幂等，媒体任务在进程内保存并随 TTL 过期。
+玩家触发的动态图像使用 Seedream，结算回忆视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。服务端为开场和每轮回复签发 `VisualBeat`，媒体接口只接受 `sessionId + beatId + kind`，拒绝客户端自定义 Prompt。图像允许引用该会话的任意有效节拍；视频只允许在结算后由最后一个节拍触发。相同会话、节拍和媒体类型幂等，媒体任务在进程内保存并随 TTL 过期。
 
-默认视频规格是 480p、16:9、4 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。图片、视频链接由供应商返回，不写入浏览器持久化数据。
+每张图片固定传入秋雾两张状态原型和徐坤原型；存在上一张成功图片时一并作为连续性参考。图片 Prompt 使用本轮对话、表演动作、事件和关系状态理解情绪，同时明确禁止模型渲染文字；页面用真实对话 DOM 覆盖位图，避免乱码。结算视频选取开场、评判关键轮次和最后一轮的成功图片，连同人物原型作为最多九张 Seedance 参考图。
+
+默认视频规格是 480p、16:9、15 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。媒体模型会临时接收生成所必需的对话上下文，但图片、视频链接、Prompt 和对话正文都不写入浏览器持久化数据或服务端长期存储。
 
 DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`、`completion_tokens`、`reasoning_tokens` 和 `total_tokens`。缓存命中量按 DeepSeek 缓存单价计算。
 
@@ -285,7 +287,7 @@ DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_to
 | 会话 | 进程内 Map + TTL | 原型零运维；生产替换 Redis |
 | 立绘 | WebP + CSS Motion | 双角色、情绪状态切换、体积小；数据协议可接 Live2D |
 | 音频 | MiMo/OpenAI TTS + Web Speech fallback | 真实 AI 声音与无 Key 演示路径同时成立 |
-| 图像/视频 | Ark Seedream + Seedance | 统一 API Key、异步视频任务和关键剧情 Hook |
+| 图像/视频 | Ark Seedream + Seedance | 多参考图人物锁定、逐轮图片、结算回忆视频与异步任务 |
 
 ## 10. 目录结构
 
@@ -383,4 +385,4 @@ relationship-arena/
 | 成本失控 | 最大 7 轮、输出上限、IP 限流、Provider 熔断、预算告警 |
 | 对话涉及现实危机 | 安全分类、剧情暂停、明确虚构产品边界 |
 | 语音合成延迟 | 文本先展示、音频异步、浏览器语音回退 |
-| 图像/视频生成成本和延迟 | 产品访问密钥、预设 Hook、低规格默认值、异步展示与接口限流 |
+| 图像/视频生成成本和延迟 | 产品访问密钥、逐轮幂等、单局单视频、低规格默认值、异步展示与接口限流 |

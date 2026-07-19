@@ -3,9 +3,11 @@ import type {
   MediaGeneration,
   OutputMode,
   PublicSession,
+  VisualBeat,
 } from '../../shared/contracts.js';
 import { GeneratedMedia } from './GeneratedMedia.js';
 import { BrandLogo } from './BrandLogo.js';
+import { MemoryFrame } from './MemoryFrame.js';
 import { Portrait } from './Portrait.js';
 import {
   relationshipProgress,
@@ -15,8 +17,9 @@ import {
 interface ResultScreenProps {
   session: PublicSession;
   outputMode: OutputMode;
-  mediaGeneration: MediaGeneration | null;
-  mediaTitle: string | null;
+  visualBeat: VisualBeat | null;
+  imageGeneration: MediaGeneration | null;
+  memoryVideoGeneration: MediaGeneration | null;
   replaying: boolean;
   onReplay: () => void;
   onBackToLevels: () => void;
@@ -25,8 +28,9 @@ interface ResultScreenProps {
 export function ResultScreen({
   session,
   outputMode,
-  mediaGeneration,
-  mediaTitle,
+  visualBeat,
+  imageGeneration,
+  memoryVideoGeneration,
   replaying,
   onReplay,
   onBackToLevels,
@@ -84,14 +88,45 @@ export function ResultScreen({
         <article className="epilogue">
           <span>结局现场</span>
           <p>{verdict.epilogue}</p>
-          {(outputMode === 'image' || outputMode === 'video') &&
-            mediaTitle && (
-              <GeneratedMedia
-                kind={outputMode}
-                title={mediaTitle}
-                generation={mediaGeneration}
+          {outputMode === 'image' &&
+            visualBeat &&
+            imageGeneration?.status === 'succeeded' && (
+              <MemoryFrame
+                session={session}
+                beat={visualBeat}
+                generation={imageGeneration}
               />
             )}
+          {outputMode === 'image' &&
+            visualBeat &&
+            imageGeneration?.status !== 'succeeded' && (
+              <GeneratedMedia
+                kind="image"
+                title={visualBeat.eventTitle ?? session.briefing.title}
+                generation={imageGeneration}
+              />
+            )}
+          {outputMode === 'video' && visualBeat && (
+            <section className="memory-film" aria-label="本局回忆">
+              <div className="memory-film__heading">
+                <span>本局回忆</span>
+                <strong>把整段对话压缩成一支短片</strong>
+              </div>
+              <GeneratedMedia
+                kind="video"
+                title={verdict.title}
+                generation={memoryVideoGeneration}
+              />
+              <div className="memory-film__captions">
+                {verdict.keyMoments.slice(0, 3).map((moment) => (
+                  <p key={`${moment.round}-${moment.quote}`}>
+                    <span>第 {moment.round} 轮</span>
+                    {moment.quote}
+                  </p>
+                ))}
+              </div>
+            </section>
+          )}
         </article>
 
         <div className="score-card">

@@ -1,6 +1,6 @@
 {
   "name": "relationship-arena",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "关系修炼：八关 AI 原生互动关系对话游戏",

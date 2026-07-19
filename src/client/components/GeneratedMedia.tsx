@@ -14,7 +14,7 @@ export function GeneratedMedia({
   title,
   generation,
 }: GeneratedMediaProps) {
-  const label = kind === 'image' ? '剧情图像' : '剧情视频';
+  const label = kind === 'image' ? '剧情图像' : '本局回忆';
 
   if (!generation || generation.status === 'queued') {
     return (
@@ -64,9 +64,9 @@ export function GeneratedMedia({
         className="generated-media generated-media--mock-video"
         data-testid="generated-media-video"
       >
-        <span>剧情镜头</span>
+        <span>本局回忆</span>
         <strong>{title}</strong>
-        <p>画面会跟随这一次关系变化继续展开。</p>
+        <p>整段对话已经压缩为一支连续短片。</p>
       </section>
     );
   }

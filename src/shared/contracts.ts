@@ -176,7 +176,7 @@ export const MediaGenerationStatusSchema = z.enum([
 export const MediaGenerationSchema = z.strictObject({
   id: z.string().uuid(),
   sessionId: z.string().uuid(),
-  hookId: z.string().min(1).max(80),
+  beatId: z.string().min(1).max(80),
   kind: MediaKindSchema,
   status: MediaGenerationStatusSchema,
   url: z.string().min(1).max(4096).nullable(),
@@ -247,6 +247,26 @@ export const ActorPerformanceSchema = z.strictObject({
     stageDirection: z.string().min(1).max(180),
   }),
   stateChanges: MetricDeltaSchema,
+});
+
+export const VisualBeatSchema = z.strictObject({
+  id: z.string().min(1).max(80),
+  round: z.number().int().min(0).max(7),
+  kind: z.enum(['opening', 'turn', 'ending']),
+  playerLine: z.string().min(1).max(240).nullable(),
+  characterLine: z.string().min(1).max(160),
+  emotion: EmotionSchema,
+  tone: ToneSchema,
+  expression: ActorPerformanceSchema.shape.expression,
+  action: ActorPerformanceSchema.shape.action,
+  metrics: z.strictObject({
+    warmth: z.number().int().min(0).max(100),
+    pressure: z.number().int().min(0).max(100),
+    openness: z.number().int().min(0).max(100),
+  }),
+  eventTitle: z.string().min(1).max(40).nullable(),
+  eventDescription: z.string().min(1).max(180).nullable(),
+  createdAt: z.string().datetime(),
 });
 
 export const TranscriptEntrySchema = z.strictObject({
@@ -393,6 +413,7 @@ export const PublicSessionSchema = z
     briefing: ScenarioBriefingSchema,
     state: GameStateSchema,
     transcript: z.array(TranscriptEntrySchema),
+    visualBeats: z.array(VisualBeatSchema).min(1).max(8),
     lastPerformance: ActorPerformanceSchema,
     verdict: JudgeVerdictSchema.nullable(),
     usage: SessionUsageSchema,
@@ -445,7 +466,7 @@ export const MediaAccessInputSchema = z.strictObject({
 
 export const CreateMediaGenerationInputSchema = z.strictObject({
   sessionId: z.string().uuid(),
-  hookId: z.string().min(1).max(80),
+  beatId: z.string().min(1).max(80),
   kind: MediaKindSchema,
 });
 
@@ -487,6 +508,7 @@ export type MediaGeneration = z.infer<typeof MediaGenerationSchema>;
 export type StoryEvent = z.infer<typeof StoryEventSchema>;
 export type DirectorDecision = z.infer<typeof DirectorDecisionSchema>;
 export type ActorPerformance = z.infer<typeof ActorPerformanceSchema>;
+export type VisualBeat = z.infer<typeof VisualBeatSchema>;
 export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type JudgeVerdict = z.infer<typeof JudgeVerdictSchema>;

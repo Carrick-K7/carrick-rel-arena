@@ -4,13 +4,14 @@ import type {
   OutputMode,
   PublicSession,
   TranscriptEntry,
+  VisualBeat,
 } from '../../shared/contracts.js';
 import {
   relationshipProgress,
   relationshipProgressLabel,
 } from '../relationship-progress.js';
 import { BrandLogo } from './BrandLogo.js';
-import { GeneratedMedia } from './GeneratedMedia.js';
+import { MemoryFrame } from './MemoryFrame.js';
 import { Portrait } from './Portrait.js';
 
 interface GameStageProps {
@@ -20,8 +21,8 @@ interface GameStageProps {
   busy: boolean;
   error: string | null;
   outputMode: OutputMode;
-  mediaGeneration: MediaGeneration | null;
-  mediaTitle: string | null;
+  visualBeat: VisualBeat | null;
+  imageGeneration: MediaGeneration | null;
   recording: boolean;
   speechInputSupported: boolean;
   speakingEntryId: string | null;
@@ -40,8 +41,8 @@ export function GameStage({
   busy,
   error,
   outputMode,
-  mediaGeneration,
-  mediaTitle,
+  visualBeat,
+  imageGeneration,
   recording,
   speechInputSupported,
   speakingEntryId,
@@ -316,8 +317,8 @@ export function GameStage({
         <OpponentVisual
           session={session}
           outputMode={outputMode}
-          mediaGeneration={mediaGeneration}
-          mediaTitle={mediaTitle}
+          visualBeat={visualBeat}
+          imageGeneration={imageGeneration}
         />
       </section>
     </main>
@@ -327,25 +328,25 @@ export function GameStage({
 function OpponentVisual({
   session,
   outputMode,
-  mediaGeneration,
-  mediaTitle,
+  visualBeat,
+  imageGeneration,
 }: {
   session: PublicSession;
   outputMode: OutputMode;
-  mediaGeneration: MediaGeneration | null;
-  mediaTitle: string | null;
+  visualBeat: VisualBeat | null;
+  imageGeneration: MediaGeneration | null;
 }) {
   const mediaRequested =
-    (outputMode === 'image' || outputMode === 'video') && mediaTitle;
+    (outputMode === 'image' || outputMode === 'video') && visualBeat;
   const mediaSucceeded =
-    Boolean(mediaRequested) && mediaGeneration?.status === 'succeeded';
+    Boolean(mediaRequested) && imageGeneration?.status === 'succeeded';
 
-  if (mediaSucceeded && mediaTitle) {
+  if (mediaSucceeded && visualBeat && imageGeneration) {
     return (
-      <GeneratedMedia
-        kind={outputMode as 'image' | 'video'}
-        title={mediaTitle}
-        generation={mediaGeneration}
+      <MemoryFrame
+        session={session}
+        beat={visualBeat}
+        generation={imageGeneration}
       />
     );
   }
@@ -357,18 +358,18 @@ function OpponentVisual({
         character={session.briefing.character}
       />
       {mediaRequested &&
-        (!mediaGeneration ||
-          mediaGeneration.status === 'queued' ||
-          mediaGeneration.status === 'running') && (
+        (!imageGeneration ||
+          imageGeneration.status === 'queued' ||
+          imageGeneration.status === 'running') && (
           <div
             className="opponent-stage__media-status"
             data-testid="generated-media-loading"
           >
             <span />
-            正在生成{outputMode === 'image' ? '剧情图像' : '剧情视频'}…
+            正在记录这一刻…
           </div>
         )}
-      {mediaRequested && mediaGeneration?.status === 'failed' && (
+      {mediaRequested && imageGeneration?.status === 'failed' && (
         <p
           className="opponent-stage__media-fallback"
           data-testid="generated-media-failed"

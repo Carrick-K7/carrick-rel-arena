@@ -180,7 +180,7 @@ export function ModalitySettings({
               title="图像"
               detail={
                 imageAvailable
-                  ? '在关键剧情节点生成'
+                  ? '开场与每轮实时生成'
                   : '服务端尚未配置'
               }
               selected={preferences.output === 'image'}
@@ -195,7 +195,7 @@ export function ModalitySettings({
               title="视频"
               detail={
                 videoAvailable
-                  ? '开场、转折、结局生成'
+                  ? '逐轮图片＋结算回忆短片'
                   : '服务端尚未配置'
               }
               selected={preferences.output === 'video'}
@@ -257,7 +257,7 @@ export function ModalitySettings({
             {outputLabel(preferences.output)}输出
           </span>
           <small>
-            图像和视频只使用关卡预设提示词，不上传对话正文。
+            媒体会临时使用对话上下文，不保存正文或生成结果。
           </small>
         </footer>
       </section>

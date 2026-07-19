@@ -120,7 +120,8 @@ app.use((_request, response, next) => {
 const turnLimit = createRateLimit(30, 60_000);
 const speechLimit = createRateLimit(60, 60_000);
 const mediaAccessLimit = createRateLimit(12, 60_000);
-const mediaGenerationLimit = createRateLimit(8, 60_000);
+const mediaCreationLimit = createRateLimit(20, 60_000);
+const mediaStatusLimit = createRateLimit(180, 60_000);
 
 app.get('/api/health', (_request, response) => {
   response.json({
@@ -265,7 +266,7 @@ app.post(
 
 app.post(
   '/api/media/generations',
-  mediaGenerationLimit,
+  mediaCreationLimit,
   (request, response) => {
     const input = CreateMediaGenerationInputSchema.parse(request.body);
     const generation = mediaGenerations.create(
@@ -279,7 +280,7 @@ app.post(
 
 app.get(
   '/api/media/generations/:generationId',
-  mediaGenerationLimit,
+  mediaStatusLimit,
   (request, response) => {
     const generationId = z.uuid().parse(
       readRouteParam(request.params.generationId),

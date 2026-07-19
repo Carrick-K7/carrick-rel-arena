@@ -49,11 +49,6 @@ import {
 } from './speech.js';
 
 type Screen = 'select' | 'briefing' | 'playing' | 'result';
-interface DisplayedMedia {
-  key: string;
-  kind: 'image' | 'video';
-  title: string;
-}
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('select');
@@ -81,8 +76,6 @@ export function App() {
   const [mediaByKey, setMediaByKey] = useState<
     Record<string, MediaGeneration>
   >({});
-  const [displayedMedia, setDisplayedMedia] =
-    useState<DisplayedMedia | null>(null);
   const stopRecognitionRef = useRef<(() => void) | null>(null);
   const requestedMediaRef = useRef(new Set<string>());
   const mountedRef = useRef(true);
@@ -136,11 +129,9 @@ export function App() {
   }, [screen]);
 
   useEffect(() => {
-    const cue = session?.state.activeEvent?.videoCue;
     const output = modalities.output;
     if (
       !session ||
-      !cue ||
       (output !== 'image' && output !== 'video') ||
       !mediaUnlocked ||
       !mediaAccessKey
@@ -148,20 +139,97 @@ export function App() {
       return;
     }
 
-    const requestKey = mediaKey(
-      session.state.sessionId,
-      cue.hookId,
-      output,
-    );
-    if (requestedMediaRef.current.has(requestKey)) {
+    for (const beat of session.visualBeats) {
+      const requestKey = mediaKey(
+        session.state.sessionId,
+        beat.id,
+        'image',
+      );
+      if (requestedMediaRef.current.has(requestKey)) continue;
+      requestedMediaRef.current.add(requestKey);
+
+      const remember = (generation: MediaGeneration) => {
+        if (!mountedRef.current) return;
+        setMediaByKey((current) => ({
+          ...current,
+          [requestKey]: generation,
+        }));
+      };
+
+      const poll = async (generationId: string) => {
+        try {
+          const next = await getMediaGeneration(
+            generationId,
+            mediaAccessKey,
+          );
+          remember(next);
+          if (next.status === 'queued' || next.status === 'running') {
+            window.setTimeout(() => void poll(generationId), 1_500);
+          }
+        } catch (mediaError) {
+          if (mountedRef.current) setError(errorMessage(mediaError));
+        }
+      };
+
+      void createMediaGeneration(
+        {
+          sessionId: session.state.sessionId,
+          beatId: beat.id,
+          kind: 'image',
+        },
+        mediaAccessKey,
+      )
+        .then((generation) => {
+          remember(generation);
+          if (
+            generation.status === 'queued' ||
+            generation.status === 'running'
+          ) {
+            return poll(generation.id);
+          }
+        })
+        .catch((mediaError: unknown) => {
+          if (mountedRef.current) setError(errorMessage(mediaError));
+        });
+    }
+  }, [
+    mediaAccessKey,
+    mediaUnlocked,
+    modalities.output,
+    session,
+  ]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      session.state.phase !== 'result' ||
+      modalities.output !== 'video' ||
+      !mediaUnlocked ||
+      !mediaAccessKey
+    ) {
       return;
     }
+    const finalBeat = session.visualBeats.at(-1);
+    if (!finalBeat) return;
+    const finalImage =
+      mediaByKey[
+        mediaKey(session.state.sessionId, finalBeat.id, 'image')
+      ];
+    if (
+      !finalImage ||
+      finalImage.status === 'queued' ||
+      finalImage.status === 'running'
+    ) {
+      return;
+    }
+
+    const requestKey = mediaKey(
+      session.state.sessionId,
+      finalBeat.id,
+      'video',
+    );
+    if (requestedMediaRef.current.has(requestKey)) return;
     requestedMediaRef.current.add(requestKey);
-    setDisplayedMedia({
-      key: requestKey,
-      kind: output,
-      title: session.state.activeEvent?.title ?? session.briefing.title,
-    });
 
     const remember = (generation: MediaGeneration) => {
       if (!mountedRef.current) return;
@@ -170,7 +238,6 @@ export function App() {
         [requestKey]: generation,
       }));
     };
-
     const poll = async (generationId: string) => {
       try {
         const next = await getMediaGeneration(
@@ -179,10 +246,7 @@ export function App() {
         );
         remember(next);
         if (next.status === 'queued' || next.status === 'running') {
-          window.setTimeout(
-            () => void poll(generationId),
-            output === 'video' ? 4_000 : 1_500,
-          );
+          window.setTimeout(() => void poll(generationId), 4_000);
         }
       } catch (mediaError) {
         if (mountedRef.current) setError(errorMessage(mediaError));
@@ -192,8 +256,8 @@ export function App() {
     void createMediaGeneration(
       {
         sessionId: session.state.sessionId,
-        hookId: cue.hookId,
-        kind: output,
+        beatId: finalBeat.id,
+        kind: 'video',
       },
       mediaAccessKey,
     )
@@ -211,6 +275,7 @@ export function App() {
       });
   }, [
     mediaAccessKey,
+    mediaByKey,
     mediaUnlocked,
     modalities.output,
     session,
@@ -274,7 +339,6 @@ export function App() {
       setDraft('');
       setPendingLine(null);
       setMediaByKey({});
-      setDisplayedMedia(null);
       requestedMediaRef.current.clear();
       if (modalities.output === 'voice') playSessionLine(nextSession);
     } catch (startError) {
@@ -361,7 +425,6 @@ export function App() {
     setPendingLine(null);
     setError(null);
     setMediaByKey({});
-    setDisplayedMedia(null);
     requestedMediaRef.current.clear();
     setScreen('select');
   }
@@ -467,10 +530,23 @@ export function App() {
     );
   }
 
-  const activeMedia =
-    displayedMedia &&
-    modalities.output === displayedMedia.kind
-      ? (mediaByKey[displayedMedia.key] ?? null)
+  const latestBeat = session?.visualBeats.at(-1) ?? null;
+  const latestImage =
+    session &&
+    latestBeat &&
+    (modalities.output === 'image' || modalities.output === 'video')
+      ? (mediaByKey[
+          mediaKey(session.state.sessionId, latestBeat.id, 'image')
+        ] ?? null)
+      : null;
+  const memoryVideo =
+    session &&
+    latestBeat &&
+    modalities.output === 'video' &&
+    session.state.phase === 'result'
+      ? (mediaByKey[
+          mediaKey(session.state.sessionId, latestBeat.id, 'video')
+        ] ?? null)
       : null;
 
   let content;
@@ -479,8 +555,9 @@ export function App() {
       <ResultScreen
         session={session}
         outputMode={modalities.output}
-        mediaGeneration={activeMedia}
-        mediaTitle={displayedMedia?.title ?? null}
+        visualBeat={latestBeat}
+        imageGeneration={latestImage}
+        memoryVideoGeneration={memoryVideo}
         replaying={busy}
         onReplay={beginGame}
         onBackToLevels={returnToLevels}
@@ -495,8 +572,8 @@ export function App() {
         busy={busy}
         error={error}
         outputMode={modalities.output}
-        mediaGeneration={activeMedia}
-        mediaTitle={displayedMedia?.title ?? null}
+        visualBeat={latestBeat}
+        imageGeneration={latestImage}
         recording={recording}
         speechInputSupported={speechInputSupported}
         speakingEntryId={speakingEntryId}
@@ -583,10 +660,10 @@ function SettingsIcon() {
 
 function mediaKey(
   sessionId: string,
-  hookId: string,
+  beatId: string,
   output: 'image' | 'video',
 ): string {
-  return `${sessionId}:${hookId}:${output}`;
+  return `${sessionId}:${beatId}:${output}`;
 }
 
 function errorMessage(error: unknown): string {

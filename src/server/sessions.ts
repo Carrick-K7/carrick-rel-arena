@@ -4,6 +4,7 @@ import {
   GameStateSchema,
   PublicSessionSchema,
   TranscriptEntrySchema,
+  VisualBeatSchema,
   type ActorPerformance,
   type Gender,
   type GameState,
@@ -12,6 +13,7 @@ import {
   type ScenarioId,
   type SessionUsage,
   type TranscriptEntry,
+  type VisualBeat,
 } from '../shared/contracts.js';
 import { GameAgents } from './agents.js';
 import {
@@ -35,6 +37,7 @@ interface StoredSession {
   briefing: PublicSession['briefing'];
   state: GameState;
   transcript: TranscriptEntry[];
+  visualBeats: VisualBeat[];
   lastPerformance: ActorPerformance;
   verdict: JudgeVerdict | null;
   expiresAt: Date;
@@ -95,6 +98,17 @@ export class GameSessionService {
       briefing,
       state,
       transcript: [opening],
+      visualBeats: [
+        createVisualBeat({
+          id: opening.id,
+          round: 0,
+          kind: 'opening',
+          playerLine: null,
+          performance: openingPerformance,
+          state,
+          createdAt: opening.createdAt,
+        }),
+      ],
       lastPerformance: openingPerformance,
       verdict: null,
       expiresAt: new Date(now.getTime() + this.ttlMs),
@@ -181,6 +195,7 @@ export class GameSessionService {
         stateChanges: applied.decision.delta,
       });
 
+      const actorCreatedAt = new Date().toISOString();
       const actorEntry = TranscriptEntrySchema.parse({
         id: randomUUID(),
         speaker: 'character',
@@ -188,7 +203,7 @@ export class GameSessionService {
         round,
         emotion: performance.emotion,
         tone: performance.tone,
-        createdAt: new Date().toISOString(),
+        createdAt: actorCreatedAt,
       });
       workingTranscript.push(actorEntry);
 
@@ -242,6 +257,18 @@ export class GameSessionService {
 
       stored.state = nextState;
       stored.transcript = workingTranscript;
+      stored.visualBeats = [
+        ...stored.visualBeats,
+        createVisualBeat({
+          id: actorEntry.id,
+          round,
+          kind: verdict ? 'ending' : 'turn',
+          playerLine,
+          performance,
+          state: nextState,
+          createdAt: actorCreatedAt,
+        }),
+      ];
       stored.lastPerformance = performance;
       stored.verdict = verdict;
       stored.expiresAt = new Date(Date.now() + this.ttlMs);
@@ -272,6 +299,7 @@ export class GameSessionService {
       briefing: stored.briefing,
       state: stored.state,
       transcript: stored.transcript,
+      visualBeats: stored.visualBeats,
       lastPerformance: stored.lastPerformance,
       verdict: stored.verdict,
       usage:
@@ -296,6 +324,32 @@ export class GameSessionService {
       }
     }
   }
+}
+
+function createVisualBeat(input: {
+  id: string;
+  round: number;
+  kind: VisualBeat['kind'];
+  playerLine: string | null;
+  performance: ActorPerformance;
+  state: GameState;
+  createdAt: string;
+}): VisualBeat {
+  return VisualBeatSchema.parse({
+    id: input.id,
+    round: input.round,
+    kind: input.kind,
+    playerLine: input.playerLine,
+    characterLine: input.performance.line,
+    emotion: input.performance.emotion,
+    tone: input.performance.tone,
+    expression: input.performance.expression,
+    action: input.performance.action,
+    metrics: input.state.metrics,
+    eventTitle: input.state.activeEvent?.title ?? null,
+    eventDescription: input.state.activeEvent?.description ?? null,
+    createdAt: input.createdAt,
+  });
 }
 
 function emptyUsage(

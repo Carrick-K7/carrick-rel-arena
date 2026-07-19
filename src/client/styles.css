@@ -3801,6 +3801,148 @@ figure {
   place-content: center;
 }
 
+.memory-frame__visual {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  background: #dcefeb;
+}
+
+.memory-frame__visual > img {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.memory-frame__visual::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 42% 0 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(12, 31, 29, 0.76)
+  );
+  pointer-events: none;
+}
+
+.memory-frame__dialogue {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 14px;
+  left: 16px;
+  display: grid;
+  gap: 7px;
+  color: #fff;
+  text-shadow: 0 1px 9px rgba(0, 0, 0, 0.42);
+}
+
+.memory-frame__dialogue p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: clamp(12px, 1vw, 14px);
+  line-height: 1.55;
+}
+
+.memory-frame__dialogue p > span {
+  margin-right: 7px;
+  color: #9cf3eb;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.memory-frame__player {
+  justify-self: end;
+  max-width: 90%;
+  font-family: var(--font-sans);
+  text-align: right;
+}
+
+.memory-frame__character {
+  max-width: 94%;
+  font-family: var(--font-serif);
+}
+
+.opponent-stage > .memory-frame .memory-frame__visual {
+  height: auto;
+}
+
+.opponent-stage > .memory-frame {
+  flex: none;
+  margin: auto 0;
+}
+
+.epilogue > .memory-frame {
+  width: min(100%, 420px);
+}
+
+.memory-film {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.memory-film__heading span {
+  display: block;
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.memory-film__heading strong {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+}
+
+.memory-film > .generated-media {
+  margin-top: 12px;
+}
+
+.memory-film__captions {
+  display: grid;
+  gap: 1px;
+  margin-top: 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--line-soft);
+}
+
+.memory-film__captions p {
+  margin: 0;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: #fff;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.memory-film__captions p:first-child {
+  border-radius: 9px 9px 0 0;
+}
+
+.memory-film__captions p:last-child {
+  border-radius: 0 0 9px 9px;
+}
+
+.memory-film__captions span {
+  margin-right: 8px;
+  color: var(--accent-dark);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .opponent-stage__media-status {
   position: absolute;
   z-index: 4;

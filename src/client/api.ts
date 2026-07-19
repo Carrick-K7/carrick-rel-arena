@@ -118,7 +118,7 @@ export async function verifyMediaAccess(
 export async function createMediaGeneration(
   input: {
     sessionId: string;
-    hookId: string;
+    beatId: string;
     kind: MediaKind;
   },
   accessKey: string,
