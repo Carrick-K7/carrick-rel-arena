@@ -2962,14 +2962,14 @@ figure {
 .level-intro__advantages h2 {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 750;
 }
 
 .level-intro__advantages p {
   margin-top: 3px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.62;
 }
 
@@ -3003,13 +3003,13 @@ figure {
 
 .scenario-filters__heading span {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .scenario-filters__heading strong {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -3020,7 +3020,7 @@ figure {
 
 .filter-section h2 {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -3041,7 +3041,7 @@ figure {
   color: var(--muted);
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
 }
 
@@ -3159,7 +3159,7 @@ figure {
 
 .scenario-card__tags i {
   padding: 2px 6px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .scenario-card__copy > strong {
@@ -3167,7 +3167,7 @@ figure {
   overflow: hidden;
   margin-top: 9px;
   font-family: var(--font-serif);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   line-height: 1.42;
   text-overflow: ellipsis;
@@ -3178,7 +3178,7 @@ figure {
   margin-top: 10px;
   padding-top: 0;
   border: 0;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .scenario-card__record > span {
@@ -3193,7 +3193,7 @@ figure {
 }
 
 .scenario-card__record b {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .scenario-card__chevron {
@@ -3237,7 +3237,7 @@ figure {
   border-radius: 999px;
   color: var(--muted);
   background: #f7fcfb;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .scenario-preview > h2 {
@@ -3259,20 +3259,20 @@ figure {
   display: block;
   margin-bottom: 5px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
 .scenario-preview__facts strong,
 .scenario-preview__opponent strong {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .scenario-preview__facts p,
 .scenario-preview__opponent p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.72;
 }
 
@@ -3401,7 +3401,7 @@ figure {
 .game-topbar__title {
   overflow: hidden;
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3416,7 +3416,7 @@ figure {
 
 .game-topbar__actions > span {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .story-context {
@@ -3431,7 +3431,7 @@ figure {
 
 .story-context__heading > span {
   color: var(--accent-dark);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -3452,19 +3452,19 @@ figure {
   display: block;
   margin-bottom: 7px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
 .story-context article > strong {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
 .story-context article > p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.86;
 }
 
@@ -3519,13 +3519,13 @@ figure {
 
 .relationship-progress__label span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .relationship-progress__label strong {
   color: var(--accent-dark);
   font-family: var(--font-serif);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .relationship-progress__track {
@@ -3575,7 +3575,7 @@ figure {
   gap: 7px;
   color: var(--faint);
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .message__round {
@@ -3614,7 +3614,7 @@ figure {
   margin: 0;
   color: #354341;
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.82;
 }
 
@@ -3622,7 +3622,7 @@ figure {
   margin-bottom: 3px;
   color: #839491;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -3642,7 +3642,7 @@ figure {
 .message--player p {
   color: #1f4f4a;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.68;
 }
 
@@ -3713,7 +3713,7 @@ figure {
   color: var(--ink);
   background: transparent;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.62;
 }
 
@@ -4291,6 +4291,130 @@ figure {
 .loading-mark::before,
 .loading-mark::after {
   display: none;
+}
+
+@media (min-width: 901px) {
+  body:has(.level-screen) {
+    overflow: hidden;
+  }
+
+  .level-screen {
+    position: relative;
+    display: grid;
+    height: 100svh;
+    min-height: 0;
+    padding-bottom: 28px;
+    grid-template-rows: 72px auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .level-topbar {
+    min-height: 72px;
+  }
+
+  .level-intro {
+    padding: clamp(16px, 2.6vh, 28px) 0;
+  }
+
+  .level-intro h1 {
+    font-size: clamp(48px, 5vw, 72px);
+  }
+
+  .level-intro__advantages article {
+    padding: clamp(4px, 0.7vh, 7px) 0;
+  }
+
+  .level-intro__advantages p {
+    margin-top: 1px;
+    line-height: 1.35;
+  }
+
+  .scenario-browser {
+    min-height: 0;
+    height: 100%;
+    padding-top: clamp(14px, 2.2vh, 22px);
+    gap: 18px;
+    overflow: hidden;
+  }
+
+  .scenario-filters {
+    min-height: 0;
+    padding-top: 0;
+    padding-right: 18px;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .scenario-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scenario-filters__heading {
+    padding-bottom: 9px;
+  }
+
+  .filter-section {
+    padding: 7px 0;
+  }
+
+  .filter-section > div {
+    margin-top: 4px;
+  }
+
+  .filter-section button {
+    min-height: 27px;
+  }
+
+  .clear-filters {
+    padding: 6px 0;
+  }
+
+  .scenario-list {
+    height: 100%;
+    max-height: none;
+  }
+
+  .scenario-card {
+    min-height: 112px;
+    padding-top: 15px;
+    padding-bottom: 14px;
+  }
+
+  .scenario-preview {
+    top: 0;
+    min-height: 0;
+    height: 100%;
+    padding: clamp(22px, 2.3vw, 34px);
+    overflow-y: auto;
+    scrollbar-color: #c1d6d3 transparent;
+    scrollbar-width: thin;
+  }
+
+  .scenario-preview > h2 {
+    margin-top: 16px;
+  }
+
+  .scenario-preview__facts {
+    margin-top: 18px;
+    gap: 14px;
+  }
+
+  .scenario-preview__opponent {
+    margin-top: 20px;
+    padding-top: 18px;
+  }
+
+  .scenario-preview__enter {
+    min-height: 46px;
+    margin-top: 20px;
+  }
+
+  .level-footer {
+    position: absolute;
+    right: clamp(24px, 4.4vw, 68px);
+    bottom: 0;
+    padding: 0;
+  }
 }
 
 @media (max-width: 1180px) {

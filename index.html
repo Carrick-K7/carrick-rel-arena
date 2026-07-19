@@ -23,10 +23,60 @@
       type="font/woff2"
       crossorigin
     />
+    <link
+      rel="preload"
+      href="/fonts/source-han-sans-sc-bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/source-han-serif-sc-regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/source-han-serif-sc-semibold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <style>
+      .app-bootstrap {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        background: #f4fbfa;
+      }
+
+      .app-bootstrap img {
+        width: 164px;
+        height: auto;
+        animation: bootstrap-pulse 1.1s ease-in-out infinite alternate;
+      }
+
+      @keyframes bootstrap-pulse {
+        to {
+          opacity: 0.58;
+          transform: translateY(-2px);
+        }
+      }
+    </style>
     <title>关系修炼 · 八段关系对话挑战</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-bootstrap" aria-label="关系修炼正在加载">
+        <img
+          src="/brand/relationship-training-logo.svg"
+          alt=""
+          aria-hidden="true"
+        />
+      </div>
+    </div>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>

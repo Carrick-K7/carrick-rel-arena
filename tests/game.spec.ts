@@ -28,8 +28,13 @@ test('shows all eight open scenarios and filters by type and progress', async ({
 }) => {
   await page.goto('./');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    '把关系练成',
+    '练习那些',
   );
+  await expect(
+    page.getByRole('heading', { level: 1 }),
+  ).toContainText('让彼此更靠近的回应');
+  await expect(page.getByText('高压', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('挑战', { exact: true })).toHaveCount(4);
   await expect(
     page.getByRole('link', { name: '关系修炼首页' }),
   ).toBeVisible();
@@ -72,6 +77,13 @@ test('uses the new font system and selects a card before entering its briefing',
   page,
 }) => {
   await page.goto('./');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.dataset.fontsReady,
+      ),
+    )
+    .toBe('true');
   await expect(
     page.getByRole('link', { name: '关系修炼首页' }).locator('img'),
   ).toBeVisible();
@@ -106,6 +118,22 @@ test('uses the new font system and selects a card before entering its briefing',
   expect(fonts.hero).toContain('Relationship Display');
   expect(fonts.card).toContain('Relationship Sans');
   expect(fonts.scene).toContain('Relationship Serif');
+  expect(
+    await page.evaluate(() => ({
+      display: document.fonts.check(
+        '400 16px "Relationship Display"',
+      ),
+      sans: document.fonts.check('700 16px "Relationship Sans"'),
+      serif: document.fonts.check('600 16px "Relationship Serif"'),
+    })),
+  ).toEqual({ display: true, sans: true, serif: true });
+
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollHeight <= window.innerHeight,
+    ),
+  ).toBe(true);
 
   await page.getByTestId('scenario-card-rejected-proposal').click();
   await expect(page.getByTestId('scenario-preview')).toContainText(

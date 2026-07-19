@@ -60,6 +60,18 @@ describe('typed scenario catalog', () => {
       'repair',
       'alignment',
     ]);
+    expect(
+      SCENARIO_ORDER.map((scenario) => scenario.difficulty),
+    ).toEqual([
+      '入门',
+      '入门',
+      '进阶',
+      '进阶',
+      '进阶',
+      '挑战',
+      '挑战',
+      '挑战',
+    ]);
   });
 
   it('defines one S, A and C ending owned by every scenario', () => {

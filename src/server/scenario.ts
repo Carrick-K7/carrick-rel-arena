@@ -562,7 +562,7 @@ export const SCENARIO_DEFINITIONS = {
     type: 'repair',
     title: '聚会玩笑开过头：请对方一起回去',
     summary: '你在朋友面前拿对方的私事开了玩笑，现在门内外都在等。',
-    difficulty: '高压',
+    difficulty: '挑战',
     maxRounds: 6,
     timeAndPlace: '周六 21:47 · 餐厅消防通道',
     premise:
@@ -590,7 +590,7 @@ export const SCENARIO_DEFINITIONS = {
       pose: 'at-door',
       gesture: 'checks-phone',
       videoPrompt:
-        '餐厅消防通道，门内传来聚会灯光，年轻职场人把群聊静音，克制高压电影感。',
+        '餐厅消防通道，门内传来聚会灯光，年轻职场人把群聊静音，克制而紧张的电影感。',
     },
     turning: {
       round: 3,
@@ -652,7 +652,7 @@ export const SCENARIO_DEFINITIONS = {
     type: 'repair',
     title: '凌晨一点：七句话让对方留下吃早餐',
     summary: '一次失联把行李箱推到门口，七轮内让明早仍有两副餐具。',
-    difficulty: '高压',
+    difficulty: '挑战',
     maxRounds: 7,
     timeAndPlace: '周六 01:07 · 你们合租的公寓',
     premise:
@@ -742,7 +742,7 @@ export const SCENARIO_DEFINITIONS = {
     type: 'alignment',
     title: '续租截止前：一起决定下一年的家',
     summary: '从一顿早餐走到续租截止，决定下一年是否还共用一把钥匙。',
-    difficulty: '高压',
+    difficulty: '挑战',
     maxRounds: 7,
     timeAndPlace: '周日 19:26 · 合租公寓餐桌',
     premise:

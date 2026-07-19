@@ -44,7 +44,7 @@ const difficultyFilters: Array<{
 }> = [
   { value: '入门', label: '入门' },
   { value: '进阶', label: '进阶' },
-  { value: '高压', label: '高压' },
+  { value: '挑战', label: '挑战' },
 ];
 
 const completionFilters: Array<{
@@ -138,7 +138,7 @@ export function ScenarioSelect({
       </header>
 
       <section className="level-intro">
-        <h1>把关系练成<br />两个人的功课</h1>
+        <h1>练习那些<br />让彼此更靠近的回应</h1>
         <div
           className="level-intro__advantages"
           aria-label="关系修炼的核心优势"

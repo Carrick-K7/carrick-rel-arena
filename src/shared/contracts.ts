@@ -18,7 +18,7 @@ export const ScenarioTypeSchema = z.enum([
   'alignment',
   'repair',
 ]);
-export const DifficultySchema = z.enum(['入门', '进阶', '高压']);
+export const DifficultySchema = z.enum(['入门', '进阶', '挑战']);
 export const GenderSchema = z.enum(['male', 'female']);
 export const InputModeSchema = z.enum(['text', 'voice']);
 export const OutputModeSchema = z.enum([
