@@ -1,4 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   MediaGenerationSchema,
   type MediaGeneration,
@@ -133,6 +135,7 @@ export function readMediaConfig(): MediaConfig {
 
 export class MediaGenerationService {
   private readonly provider: MediaProvider | null;
+  private readonly prototypeImages: string[];
   private readonly records = new Map<string, StoredMediaGeneration>();
   private readonly generationIds = new Map<string, string>();
 
@@ -141,6 +144,9 @@ export class MediaGenerationService {
     private readonly getSession: (sessionId: string) => PublicSession,
   ) {
     this.provider = createMediaProvider(config);
+    this.prototypeImages = loadPrototypeReferences(
+      config.publicBaseUrl,
+    );
     const timer = setInterval(() => this.deleteExpired(), 60_000);
     timer.unref();
   }
@@ -197,7 +203,14 @@ export class MediaGenerationService {
       input.kind,
     ].join(':');
     const existingId = this.generationIds.get(requestKey);
-    if (existingId) return this.get(existingId, accessKey);
+    if (existingId) {
+      const existing = this.records.get(existingId);
+      if (existing?.status !== 'failed') {
+        return this.get(existingId, accessKey);
+      }
+      this.records.delete(existingId);
+      this.generationIds.delete(requestKey);
+    }
 
     const beat = session.visualBeats.find(
       (candidate) => candidate.id === input.beatId,
@@ -276,6 +289,7 @@ export class MediaGenerationService {
   }
 
   private async run(record: StoredMediaGeneration): Promise<void> {
+    const startedAt = Date.now();
     record.status = 'running';
     record.updatedAt = new Date().toISOString();
     try {
@@ -293,11 +307,14 @@ export class MediaGenerationService {
       record.url = result.url;
       record.usageTokens = result.usageTokens;
       record.error = null;
+      console.info(
+        `[media:${record.provider}:${record.kind}] succeeded in ${Date.now() - startedAt}ms`,
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '媒体生成失败';
       console.error(
-        `[media:${record.provider}:${record.kind}] ${message.replaceAll(/\s+/g, ' ')}`,
+        `[media:${record.provider}:${record.kind}] failed in ${Date.now() - startedAt}ms: ${message.replaceAll(/\s+/g, ' ')}`,
       );
       record.status = 'failed';
       record.error = '生成没有完成，请稍后重试。';
@@ -373,12 +390,34 @@ export class MediaGenerationService {
   }
 
   private prototypeReferences(): string[] {
-    return [
-      'portraits/qiu-wu-guarded.webp',
-      'portraits/qiu-wu-soft.webp',
-      'portraits/xu-kun-guarded.webp',
-    ].map((pathname) =>
-      new URL(pathname, this.config.publicBaseUrl).toString(),
+    return [...this.prototypeImages];
+  }
+}
+
+export function loadPrototypeReferences(
+  publicBaseUrl: string,
+  projectRoot = process.cwd(),
+): string[] {
+  const filenames = [
+    'qiu-wu-guarded.jpg',
+    'qiu-wu-soft.jpg',
+    'xu-kun-guarded.jpg',
+  ];
+  try {
+    return filenames.map((filename) => {
+      const bytes = readFileSync(
+        path.join(projectRoot, 'public', 'portraits', filename),
+      );
+      return `data:image/jpeg;base64,${bytes.toString('base64')}`;
+    });
+  } catch (error) {
+    const reason =
+      error instanceof Error ? error.message : 'unknown file error';
+    console.warn(
+      `[media:prototype] Falling back to public URLs: ${reason.replaceAll(/\s+/g, ' ')}`,
+    );
+    return filenames.map((filename) =>
+      new URL(`portraits/${filename}`, publicBaseUrl).toString(),
     );
   }
 }

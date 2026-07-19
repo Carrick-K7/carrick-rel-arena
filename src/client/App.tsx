@@ -23,7 +23,10 @@ import {
 } from './api.js';
 import { Briefing } from './components/Briefing.js';
 import { BrandLogo } from './components/BrandLogo.js';
-import { GameStage } from './components/GameStage.js';
+import {
+  GameStage,
+  type VisualFrame,
+} from './components/GameStage.js';
 import { ModalitySettings } from './components/ModalitySettings.js';
 import { ResultScreen } from './components/ResultScreen.js';
 import { ScenarioSelect } from './components/ScenarioSelect.js';
@@ -51,6 +54,8 @@ import {
 } from './speech.js';
 
 type Screen = 'select' | 'briefing' | 'playing' | 'result';
+const IMAGE_CLIENT_TIMEOUT_MS = 195_000;
+const VIDEO_CLIENT_TIMEOUT_MS = 390_000;
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('select');
@@ -78,6 +83,7 @@ export function App() {
   const [mediaByKey, setMediaByKey] = useState<
     Record<string, MediaGeneration>
   >({});
+  const [mediaRetryRevision, setMediaRetryRevision] = useState(0);
   const stopRecognitionRef = useRef<(() => void) | null>(null);
   const requestedMediaRef = useRef(new Set<string>());
   const mountedRef = useRef(true);
@@ -141,63 +147,114 @@ export function App() {
       return;
     }
 
-    for (const beat of session.visualBeats) {
-      const requestKey = mediaKey(
+    const beat = session.visualBeats.find((candidate, index) => {
+      const candidateKey = mediaKey(
         session.state.sessionId,
-        beat.id,
+        candidate.id,
         'image',
       );
-      if (requestedMediaRef.current.has(requestKey)) continue;
-      requestedMediaRef.current.add(requestKey);
-
-      const remember = (generation: MediaGeneration) => {
-        if (!mountedRef.current) return;
-        setMediaByKey((current) => ({
-          ...current,
-          [requestKey]: generation,
-        }));
-      };
-
-      const poll = async (generationId: string) => {
-        try {
-          const next = await getMediaGeneration(
-            generationId,
-            mediaAccessKey,
+      if (requestedMediaRef.current.has(candidateKey)) return false;
+      return session.visualBeats
+        .slice(0, index)
+        .every((previous) => {
+          const generation =
+            mediaByKey[
+              mediaKey(
+                session.state.sessionId,
+                previous.id,
+                'image',
+              )
+            ];
+          return (
+            generation?.status === 'succeeded' ||
+            generation?.status === 'failed'
           );
-          remember(next);
-          if (next.status === 'queued' || next.status === 'running') {
-            window.setTimeout(() => void poll(generationId), 1_500);
-          }
-        } catch (mediaError) {
-          if (mountedRef.current) setError(errorMessage(mediaError));
-        }
-      };
-
-      void createMediaGeneration(
-        {
-          sessionId: session.state.sessionId,
-          beatId: beat.id,
-          kind: 'image',
-        },
-        mediaAccessKey,
-      )
-        .then((generation) => {
-          remember(generation);
-          if (
-            generation.status === 'queued' ||
-            generation.status === 'running'
-          ) {
-            return poll(generation.id);
-          }
-        })
-        .catch((mediaError: unknown) => {
-          if (mountedRef.current) setError(errorMessage(mediaError));
         });
-    }
+    });
+    if (!beat) return;
+
+    const requestKey = mediaKey(
+      session.state.sessionId,
+      beat.id,
+      'image',
+    );
+    requestedMediaRef.current.add(requestKey);
+
+    const remember = (generation: MediaGeneration) => {
+      if (!mountedRef.current) return;
+      setMediaByKey((current) => ({
+        ...current,
+        [requestKey]: generation,
+      }));
+    };
+
+    const poll = async (currentGeneration: MediaGeneration) => {
+      try {
+        const next = await getMediaGeneration(
+          currentGeneration.id,
+          mediaAccessKey,
+        );
+        if (
+          (next.status === 'queued' || next.status === 'running') &&
+          mediaTimedOut(next, IMAGE_CLIENT_TIMEOUT_MS)
+        ) {
+          remember(
+            failedGeneration(
+              next,
+              '本轮形象生成超时，可以重新生成。',
+            ),
+          );
+          return;
+        }
+        remember(next);
+        if (next.status === 'queued' || next.status === 'running') {
+          window.setTimeout(() => void poll(next), 1_500);
+        }
+      } catch {
+        remember(
+          failedGeneration(
+            currentGeneration,
+            '媒体任务已中断，可以重新生成。',
+          ),
+        );
+      }
+    };
+
+    void createMediaGeneration(
+      {
+        sessionId: session.state.sessionId,
+        beatId: beat.id,
+        kind: 'image',
+      },
+      mediaAccessKey,
+    )
+      .then((generation) => {
+        remember(generation);
+        if (
+          generation.status === 'queued' ||
+          generation.status === 'running'
+        ) {
+          return poll(generation);
+        }
+      })
+      .catch((mediaError: unknown) => {
+        remember(
+          failedMediaRequest(
+            session.state.sessionId,
+            beat.id,
+            'image',
+            capabilities?.imageGeneration === 'mock' ? 'mock' : 'ark',
+            errorMessage(mediaError),
+          ),
+        );
+      });
   }, [
     mediaAccessKey,
     mediaUnlocked,
+    mediaRetryRevision,
+    mediaByKey,
     modalities.outputs,
+    capabilities?.imageGeneration,
     session,
   ]);
 
@@ -240,18 +297,35 @@ export function App() {
         [requestKey]: generation,
       }));
     };
-    const poll = async (generationId: string) => {
+    const poll = async (currentGeneration: MediaGeneration) => {
       try {
         const next = await getMediaGeneration(
-          generationId,
+          currentGeneration.id,
           mediaAccessKey,
         );
+        if (
+          (next.status === 'queued' || next.status === 'running') &&
+          mediaTimedOut(next, VIDEO_CLIENT_TIMEOUT_MS)
+        ) {
+          remember(
+            failedGeneration(
+              next,
+              '本局回忆生成超时，可以稍后重试。',
+            ),
+          );
+          return;
+        }
         remember(next);
         if (next.status === 'queued' || next.status === 'running') {
-          window.setTimeout(() => void poll(generationId), 4_000);
+          window.setTimeout(() => void poll(next), 4_000);
         }
-      } catch (mediaError) {
-        if (mountedRef.current) setError(errorMessage(mediaError));
+      } catch {
+        remember(
+          failedGeneration(
+            currentGeneration,
+            '回忆任务已中断，可以稍后重试。',
+          ),
+        );
       }
     };
 
@@ -269,17 +343,26 @@ export function App() {
           generation.status === 'queued' ||
           generation.status === 'running'
         ) {
-          return poll(generation.id);
+          return poll(generation);
         }
       })
       .catch((mediaError: unknown) => {
-        if (mountedRef.current) setError(errorMessage(mediaError));
+        remember(
+          failedMediaRequest(
+            session.state.sessionId,
+            finalBeat.id,
+            'video',
+            capabilities?.videoGeneration === 'mock' ? 'mock' : 'ark',
+            errorMessage(mediaError),
+          ),
+        );
       });
   }, [
     mediaAccessKey,
     mediaByKey,
     mediaUnlocked,
     modalities.outputs,
+    capabilities?.videoGeneration,
     session,
   ]);
 
@@ -495,6 +578,22 @@ export function App() {
     saveModalities(next);
   }
 
+  function retryImageGeneration(beatId: string) {
+    if (!session) return;
+    const requestKey = mediaKey(
+      session.state.sessionId,
+      beatId,
+      'image',
+    );
+    requestedMediaRef.current.delete(requestKey);
+    setMediaByKey((current) => {
+      const next = { ...current };
+      delete next[requestKey];
+      return next;
+    });
+    setMediaRetryRevision((current) => current + 1);
+  }
+
   async function unlockMedia(
     accessKey: string,
     output: 'image' | 'video',
@@ -522,6 +621,14 @@ export function App() {
   }
 
   const latestBeat = session?.visualBeats.at(-1) ?? null;
+  const visualFrames: VisualFrame[] =
+    session?.visualBeats.map((beat) => ({
+      beat,
+      generation:
+        mediaByKey[
+          mediaKey(session.state.sessionId, beat.id, 'image')
+        ] ?? null,
+    })) ?? [];
   const latestImage =
     session &&
     latestBeat &&
@@ -564,8 +671,7 @@ export function App() {
         busy={busy}
         error={error}
         outputModes={modalities.outputs}
-        visualBeat={latestBeat}
-        imageGeneration={latestImage}
+        visualFrames={visualFrames}
         recording={recording}
         speechInputSupported={speechInputSupported}
         speakingEntryId={speakingEntryId}
@@ -573,6 +679,7 @@ export function App() {
         onSubmit={submitLine}
         onToggleRecording={toggleRecording}
         onToggleSpeech={toggleTranscriptSpeech}
+        onRetryImage={retryImageGeneration}
         onOpenSettings={() => setSettingsOpen(true)}
         onExit={returnToLevels}
       />
@@ -655,6 +762,49 @@ function mediaKey(
   output: 'image' | 'video',
 ): string {
   return `${sessionId}:${beatId}:${output}`;
+}
+
+function mediaTimedOut(
+  generation: MediaGeneration,
+  timeoutMs: number,
+): boolean {
+  return Date.now() - Date.parse(generation.createdAt) >= timeoutMs;
+}
+
+function failedGeneration(
+  generation: MediaGeneration,
+  message: string,
+): MediaGeneration {
+  return {
+    ...generation,
+    status: 'failed',
+    error: message,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function failedMediaRequest(
+  sessionId: string,
+  beatId: string,
+  kind: 'image' | 'video',
+  provider: 'mock' | 'ark',
+  message: string,
+): MediaGeneration {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    sessionId,
+    beatId,
+    kind,
+    status: 'failed',
+    url: null,
+    error: message,
+    provider,
+    model: 'request-failed',
+    usageTokens: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 function errorMessage(error: unknown): string {

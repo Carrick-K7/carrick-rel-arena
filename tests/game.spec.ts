@@ -174,6 +174,7 @@ test('selects modalities and requires an in-memory key for image generation', as
   const openingBeat = await page
     .getByTestId('generated-media-image')
     .getAttribute('data-visual-beat');
+  await expect(page.getByTestId('visual-frame-0')).toBeVisible();
   const line = '我想先理解你的感受，再一起定一个具体时间。';
   await page.getByTestId('dialogue-input').fill(line);
   await page.getByTestId('send-line').click();
@@ -185,6 +186,17 @@ test('selects modalities and requires an in-memory key for image generation', as
   await expect(page.getByTestId('generated-media-image')).toContainText(line);
   await expect(page.getByTestId('generated-media-image')).toContainText(
     /秋雾/,
+  );
+  await expect(page.getByTestId('visual-frame-1')).toBeVisible();
+  await page.getByTestId('visual-frame-0').click();
+  await expect(page.getByTestId('generated-media-image')).toHaveAttribute(
+    'data-visual-beat',
+    openingBeat!,
+  );
+  await page.getByTestId('visual-frame-1').click();
+  await expect(page.getByTestId('generated-media-image')).not.toHaveAttribute(
+    'data-visual-beat',
+    openingBeat!,
   );
 
   const stored = await page.evaluate(() =>
@@ -385,6 +397,16 @@ test('keeps one progress bar, complete history, and the unified composer', async
   const openingLine = page.getByTestId('message-character').first();
   await expect(openingLine).toBeVisible();
   await expect(openingLine.locator('button')).toBeVisible();
+  await expect(page.getByTestId('stage-direction-0')).toBeVisible();
+  const metaPositions = await openingLine.evaluate((element) => {
+    const label = element.querySelector('.message__meta > span');
+    const button = element.querySelector('.message__meta button');
+    return {
+      labelRight: label?.getBoundingClientRect().right ?? 0,
+      buttonLeft: button?.getBoundingClientRect().left ?? 9999,
+    };
+  });
+  expect(metaPositions.buttonLeft - metaPositions.labelRight).toBeLessThan(80);
 
   const dialogueInput = page.getByTestId('dialogue-input');
   await dialogueInput.focus();
@@ -405,6 +427,7 @@ test('keeps one progress bar, complete history, and the unified composer', async
   await expect(page.getByTestId('message-player')).toContainText(
     '我想先听听你的想法',
   );
+  await expect(page.getByText('你 · 1', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('message-character')).toHaveCount(2);
   await expect(page.getByRole('progressbar')).toHaveCount(1);
 });

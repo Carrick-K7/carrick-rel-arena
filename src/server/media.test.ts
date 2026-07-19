@@ -3,6 +3,7 @@ import { GameAgents } from './agents.js';
 import {
   createImagePrompt,
   createMemoryVideoPrompt,
+  loadPrototypeReferences,
   MediaError,
   MediaGenerationService,
   type MediaConfig,
@@ -41,6 +42,17 @@ function createService() {
 }
 
 describe('MediaGenerationService', () => {
+  it('inlines local prototype images so Ark does not fetch public URLs', () => {
+    const references = loadPrototypeReferences(
+      'https://example.invalid/rel-arena/',
+    );
+    expect(references).toHaveLength(3);
+    for (const reference of references) {
+      expect(reference).toMatch(/^data:image\/jpeg;base64,/);
+      expect(reference.length).toBeGreaterThan(1_000);
+    }
+  });
+
   it('uses constant-time access validation and rejects the wrong key', () => {
     const { service, session } = createService();
     expect(service.verifyAccess('test-media-key')).toBe(true);

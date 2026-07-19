@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
+  ActorPerformance,
   MediaGeneration,
   OutputMode,
   PublicSession,
@@ -14,6 +15,11 @@ import { BrandLogo } from './BrandLogo.js';
 import { MemoryFrame } from './MemoryFrame.js';
 import { Portrait } from './Portrait.js';
 
+export interface VisualFrame {
+  beat: VisualBeat;
+  generation: MediaGeneration | null;
+}
+
 interface GameStageProps {
   session: PublicSession;
   draft: string;
@@ -21,8 +27,7 @@ interface GameStageProps {
   busy: boolean;
   error: string | null;
   outputModes: OutputMode[];
-  visualBeat: VisualBeat | null;
-  imageGeneration: MediaGeneration | null;
+  visualFrames: VisualFrame[];
   recording: boolean;
   speechInputSupported: boolean;
   speakingEntryId: string | null;
@@ -30,6 +35,7 @@ interface GameStageProps {
   onSubmit: () => void;
   onToggleRecording: () => void;
   onToggleSpeech: (entry: TranscriptEntry) => void;
+  onRetryImage: (beatId: string) => void;
   onOpenSettings: () => void;
   onExit: () => void;
 }
@@ -41,8 +47,7 @@ export function GameStage({
   busy,
   error,
   outputModes,
-  visualBeat,
-  imageGeneration,
+  visualFrames,
   recording,
   speechInputSupported,
   speakingEntryId,
@@ -50,6 +55,7 @@ export function GameStage({
   onSubmit,
   onToggleRecording,
   onToggleSpeech,
+  onRetryImage,
   onOpenSettings,
   onExit,
 }: GameStageProps) {
@@ -181,20 +187,27 @@ export function GameStage({
             onScroll={handleTranscriptScroll}
             data-testid="transcript-history"
           >
-            {session.transcript.map((entry) => (
-              <article
-                key={entry.id}
-                className={`message message--${entry.speaker}`}
-                data-testid={`message-${entry.speaker}`}
-              >
-                <div className="message__meta">
-                  <span>
-                    {entry.speaker === 'player'
-                      ? '你'
-                      : briefing.character.name}
-                    {entry.round > 0 && ` · ${entry.round}`}
-                  </span>
+            {session.transcript.map((entry) => {
+              const beat =
+                entry.speaker === 'character'
+                  ? session.visualBeats.find(
+                      (candidate) => candidate.round === entry.round,
+                    )
+                  : null;
+              return (
+                <article
+                  key={entry.id}
+                  className={`message message--${entry.speaker}`}
+                  data-testid={`message-${entry.speaker}`}
+                >
                   {entry.speaker === 'character' && (
+                    <div className="message__meta">
+                      <span>{briefing.character.name}</span>
+                      <span className="message__round">
+                        {entry.round === 0
+                          ? '开场'
+                          : `第 ${entry.round} 轮`}
+                      </span>
                     <button
                       type="button"
                       className={
@@ -214,16 +227,22 @@ export function GameStage({
                         <SpeakerIcon />
                       )}
                     </button>
+                    </div>
                   )}
-                </div>
-                <p>{entry.text}</p>
-              </article>
-            ))}
+                  {beat && (
+                    <p
+                      className="message__stage-direction"
+                      data-testid={`stage-direction-${beat.round}`}
+                    >
+                      {beat.action.stageDirection}
+                    </p>
+                  )}
+                  <p>{entry.text}</p>
+                </article>
+              );
+            })}
             {pendingLine && (
               <article className="message message--player is-pending">
-                <div className="message__meta">
-                  <span>你 · {state.round + 1}</span>
-                </div>
                 <p>{pendingLine}</p>
               </article>
             )}
@@ -317,8 +336,8 @@ export function GameStage({
         <OpponentVisual
           session={session}
           outputModes={outputModes}
-          visualBeat={visualBeat}
-          imageGeneration={imageGeneration}
+          visualFrames={visualFrames}
+          onRetryImage={onRetryImage}
         />
       </section>
     </main>
@@ -328,58 +347,163 @@ export function GameStage({
 function OpponentVisual({
   session,
   outputModes,
-  visualBeat,
-  imageGeneration,
+  visualFrames,
+  onRetryImage,
 }: {
   session: PublicSession;
   outputModes: OutputMode[];
-  visualBeat: VisualBeat | null;
-  imageGeneration: MediaGeneration | null;
+  visualFrames: VisualFrame[];
+  onRetryImage: (beatId: string) => void;
 }) {
   const mediaRequested =
-    (outputModes.includes('image') || outputModes.includes('video')) &&
-    visualBeat;
-  const mediaSucceeded =
-    Boolean(mediaRequested) && imageGeneration?.status === 'succeeded';
+    outputModes.includes('image') || outputModes.includes('video');
+  const latestFrame = visualFrames.at(-1) ?? null;
+  const [selectedBeatId, setSelectedBeatId] = useState(
+    latestFrame?.beat.id ?? null,
+  );
 
-  if (mediaSucceeded && visualBeat && imageGeneration) {
-    return (
-      <MemoryFrame
-        session={session}
-        beat={visualBeat}
-        generation={imageGeneration}
-      />
-    );
-  }
+  useEffect(() => {
+    if (latestFrame) setSelectedBeatId(latestFrame.beat.id);
+  }, [latestFrame?.beat.id]);
+
+  const selectedFrame =
+    visualFrames.find((frame) => frame.beat.id === selectedBeatId) ??
+    latestFrame;
+  const selectedBeat = selectedFrame?.beat ?? null;
+  const generation = selectedFrame?.generation ?? null;
+  const mediaSucceeded =
+    mediaRequested && generation?.status === 'succeeded' && selectedBeat;
+  const selectedLabel = selectedBeat
+    ? roundLabel(selectedBeat.round)
+    : '当前';
 
   return (
-    <div className="opponent-stage__portrait">
-      <Portrait
-        performance={session.lastPerformance}
-        character={session.briefing.character}
-      />
-      {mediaRequested &&
-        (!imageGeneration ||
-          imageGeneration.status === 'queued' ||
-          imageGeneration.status === 'running') && (
-          <div
-            className="opponent-stage__media-status"
-            data-testid="generated-media-loading"
-          >
-            <span />
-            正在记录这一刻…
+    <div className="opponent-visual">
+      <div
+        className={`opponent-visual__main ${
+          mediaSucceeded ? 'has-generated-media' : ''
+        }`}
+      >
+        {mediaSucceeded && selectedBeat && generation ? (
+          <MemoryFrame
+            session={session}
+            beat={selectedBeat}
+            generation={generation}
+          />
+        ) : (
+          <div className="opponent-stage__portrait">
+            <Portrait
+              performance={
+                selectedBeat
+                  ? performanceFromBeat(selectedBeat)
+                  : session.lastPerformance
+              }
+              character={session.briefing.character}
+            />
+            {mediaRequested &&
+              selectedBeat &&
+              (!generation ||
+                generation.status === 'queued' ||
+                generation.status === 'running') && (
+                <div
+                  className="opponent-stage__media-status"
+                  data-testid="generated-media-loading"
+                >
+                  <span />
+                  正在生成{selectedLabel}形象，通常需要 30–90 秒
+                </div>
+              )}
+            {mediaRequested &&
+              selectedBeat &&
+              generation?.status === 'failed' && (
+                <div
+                  className="opponent-stage__media-fallback"
+                  data-testid="generated-media-failed"
+                >
+                  <strong>{generation.error ?? '形象没有生成完成。'}</strong>
+                  <button
+                    type="button"
+                    onClick={() => onRetryImage(selectedBeat.id)}
+                  >
+                    重新生成
+                  </button>
+                </div>
+              )}
           </div>
         )}
-      {mediaRequested && imageGeneration?.status === 'failed' && (
-        <p
-          className="opponent-stage__media-fallback"
-          data-testid="generated-media-failed"
-        >
-          影像未完成，已回到角色立绘。
-        </p>
+      </div>
+      {mediaRequested && visualFrames.length > 0 && (
+        <nav className="visual-timeline" aria-label="对话形象轨迹">
+          <div className="visual-timeline__heading">
+            <span>形象轨迹</span>
+            <strong>{selectedLabel}</strong>
+          </div>
+          <div className="visual-timeline__track">
+            {visualFrames.map((frame) => {
+              const status = frame.generation?.status ?? 'queued';
+              const succeeded =
+                status === 'succeeded' && frame.generation?.url;
+              const label = roundLabel(frame.beat.round);
+              return (
+                <button
+                  key={frame.beat.id}
+                  type="button"
+                  className={[
+                    frame.beat.id === selectedBeat?.id
+                      ? 'is-selected'
+                      : '',
+                    `is-${status}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => setSelectedBeatId(frame.beat.id)}
+                  aria-label={`查看${label}形象`}
+                  aria-current={
+                    frame.beat.id === selectedBeat?.id
+                      ? 'true'
+                      : undefined
+                  }
+                  data-testid={`visual-frame-${frame.beat.round}`}
+                >
+                  {succeeded ? (
+                    <img
+                      src={frame.generation!.url!}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <i aria-hidden="true">
+                      {status === 'failed' ? '!' : ''}
+                    </i>
+                  )}
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       )}
     </div>
   );
+}
+
+function roundLabel(round: number): string {
+  return round === 0 ? '开场' : `第 ${round} 轮`;
+}
+
+function performanceFromBeat(beat: VisualBeat): ActorPerformance {
+  return {
+    line: beat.characterLine,
+    emotion: beat.emotion,
+    tone: beat.tone,
+    expression: beat.expression,
+    action: beat.action,
+    stateChanges: {
+      warmth: 0,
+      pressure: 0,
+      openness: 0,
+    },
+  };
 }
 
 function SettingsIcon() {
