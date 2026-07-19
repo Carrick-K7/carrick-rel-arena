@@ -3710,6 +3710,10 @@ figure {
   line-height: 1.62;
 }
 
+.composer textarea:focus-visible {
+  box-shadow: none;
+}
+
 .composer__toolbar {
   display: flex;
   min-height: 34px;

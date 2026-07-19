@@ -386,7 +386,16 @@ test('keeps one progress bar, complete history, and the unified composer', async
   await expect(openingLine).toBeVisible();
   await expect(openingLine.locator('button')).toBeVisible();
 
-  await page.getByTestId('dialogue-input').fill('我想先听听你的想法');
+  const dialogueInput = page.getByTestId('dialogue-input');
+  await dialogueInput.focus();
+  const focusStyles = await dialogueInput.evaluate((element) => ({
+    inputShadow: getComputedStyle(element).boxShadow,
+    composerShadow: getComputedStyle(element.closest('.composer')!).boxShadow,
+  }));
+  expect(focusStyles.inputShadow).toBe('none');
+  expect(focusStyles.composerShadow).not.toBe('none');
+
+  await dialogueInput.fill('我想先听听你的想法');
   await page.getByTestId('dialogue-input').press('Shift+Enter');
   await page.getByTestId('dialogue-input').type('，然后一起定时间。');
   await expect(page.getByTestId('dialogue-input')).toHaveValue(
