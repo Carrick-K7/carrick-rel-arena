@@ -35,10 +35,15 @@ The full verification includes type checking, unit tests, production build, and 
   the host-level unit, listeners, and monitoring are owned by the private
   `Carrick-K7/carrick-ops` repository.
 - Application changes must not overwrite Caddy or systemd configuration.
-- When a change is pushed through a production deployment workflow, the AI
-  responsible for the change must follow the exact commit's workflow to
-  completion and smoke-test only the changed public path before reporting it
-  live.
+- Pushes to `main` run `.github/workflows/deploy.yml`: verify, package, deploy
+  an atomic release, restart the existing unit, and smoke-test production.
+- After every pushed production change, the responsible AI must follow the
+  exact commit's workflow to completion and smoke-test only the changed public
+  path before reporting it live.
+- Production releases live under
+  `/srv/carrick/relationship-arena/releases/<git-sha>/`; `current` is switched
+  atomically and mutable usage data stays under
+  `/var/lib/carrick/relationship-arena/`.
 - Real image/video provider tests cost money and remain explicitly manual;
   CI and routine smoke tests use mock or zero-cost paths.
 

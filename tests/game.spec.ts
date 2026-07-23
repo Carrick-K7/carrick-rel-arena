@@ -128,6 +128,11 @@ test('uses the new font system and selects a card before entering its briefing',
     })),
   ).toEqual({ display: true, sans: true, serif: true });
 
+  await page.locator('.level-screen').evaluate(async (screen) => {
+    await Promise.all(
+      screen.getAnimations().map((animation) => animation.finished),
+    );
+  });
   expect(
     await page.evaluate(
       () =>
