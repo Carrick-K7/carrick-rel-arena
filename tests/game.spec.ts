@@ -347,12 +347,16 @@ test('uses per-turn images and creates one whole-session memory film', async ({
     '回忆 1',
   );
   await page.getByTestId('open-artifact-library').click();
+  await expect(page).toHaveURL(/\/scenarios\/rain-check\/memories$/);
   await expect(page.getByTestId('artifact-library')).toBeVisible();
   await expect(page.getByTestId('artifact-run')).toHaveCount(1);
   expect(
     await page.getByTestId('artifact-library').locator('img').count(),
   ).toBeGreaterThan(1);
   await expect(page.getByTestId('archived-video')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('artifact-library')).toBeVisible();
+  await expect(page.getByTestId('artifact-run')).toHaveCount(1);
   await expect(page.getByTestId('artifact-library')).not.toContainText(
     genericStrongLine,
   );
@@ -373,6 +377,7 @@ test('enters and leaves a briefing and supports both player identities', async (
   await page.goto('./');
   await page.getByTestId('scenario-card-rejected-proposal').click();
   await page.getByTestId('enter-scenario').click();
+  await expect(page).toHaveURL(/\/scenarios\/rejected-proposal$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '提案被否',
   );
@@ -385,8 +390,34 @@ test('enters and leaves a briefing and supports both player identities', async (
   await expect(page.locator('img[alt^="江影"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /扮演秋雾/ })).toBeVisible();
 
-  await page.getByTestId('back-to-levels').click();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByTestId('scenario-card-rejected-proposal')).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/scenarios\/rejected-proposal$/);
+  await expect(page.getByText('江影，25 岁')).toBeVisible();
+
+  await page.getByTestId('back-to-levels').click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('scenario-card-rejected-proposal')).toBeVisible();
+});
+
+test('opens page deep links and recovers safely from an expired session route', async ({
+  page,
+}) => {
+  await page.goto('./scenarios/weekend-market/memories');
+  await expect(page.getByTestId('artifact-library')).toBeVisible();
+  await expect(page.getByText('本机还没有这一章的回忆')).toBeVisible();
+  await page.getByRole('button', { name: '返回关卡' }).last().click();
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto(
+    './sessions/11111111-1111-4111-8111-111111111111',
+  );
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('alert')).toContainText(
+    '这段对话已经结束或过期',
+  );
 });
 
 test('completes an invitation, keeps progress after refresh, and stores no dialogue', async ({
@@ -397,8 +428,24 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
   await page.getByTestId('scenario-card-weekend-market').click();
   await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
+  await expect(page).toHaveURL(
+    /\/sessions\/[0-9a-f-]{36}$/,
+  );
+  const sessionUrl = page.url();
+  await page.reload();
+  await expect(page.getByTestId('dialogue-input')).toBeVisible();
+  await expect(page).toHaveURL(sessionUrl);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/scenarios\/weekend-market$/);
+  await expect(page.getByTestId('start-game')).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(sessionUrl);
+  await expect(page.getByTestId('dialogue-input')).toBeVisible();
   await playUntilResult(page, genericStrongLine, 5);
 
+  await expect(page).toHaveURL(
+    /\/sessions\/[0-9a-f-]{36}\/result$/,
+  );
   await expect(page.getByTestId('result-screen')).toContainText('周末有约');
   await expect(page.getByTestId('result-screen')).toContainText('S');
   await expect(page.getByTestId('session-archive')).toBeVisible();
@@ -414,7 +461,16 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
   await expect(page.getByTestId('session-archive')).toContainText(
     '完整对话与制品',
   );
+  await page.goBack();
+  await expect(page).toHaveURL(/\/scenarios\/weekend-market$/);
+  await expect(page.getByTestId('start-game')).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(
+    /\/sessions\/[0-9a-f-]{36}\/result$/,
+  );
+  await expect(page.getByTestId('result-screen')).toBeVisible();
   await page.getByTestId('back-to-levels').click();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
     '已完成',
   );

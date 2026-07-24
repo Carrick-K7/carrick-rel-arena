@@ -2,16 +2,18 @@ import type { ArtifactRun } from '../artifacts.js';
 import { BrandLogo } from './BrandLogo.js';
 
 interface ArtifactLibraryScreenProps {
+  scenarioTitle: string;
   runs: ArtifactRun[];
   onBack: () => void;
 }
 
 export function ArtifactLibraryScreen({
+  scenarioTitle,
   runs,
   onBack,
 }: ArtifactLibraryScreenProps) {
   const first = runs[0];
-  if (!first) return null;
+  const title = first?.scenarioTitle ?? scenarioTitle;
 
   return (
     <main
@@ -38,7 +40,7 @@ export function ArtifactLibraryScreen({
 
       <section className="artifact-library__hero">
         <span>已完成章节 · 回忆库</span>
-        <h1>{first.scenarioTitle}</h1>
+        <h1>{title}</h1>
         <p>
           这里保存本机完成该章节时生成的剧情图片与回忆短片。
           对话正文不会写入回忆库。
@@ -47,8 +49,14 @@ export function ArtifactLibraryScreen({
 
       <section
         className="artifact-library__runs"
-        aria-label={`${first.scenarioTitle}的生成制品`}
+        aria-label={`${title}的生成制品`}
       >
+        {runs.length === 0 && (
+          <div className="artifact-library__empty">
+            <strong>本机还没有这一章的回忆</strong>
+            <p>完成场景并生成图片或视频后，制品会出现在这里。</p>
+          </div>
+        )}
         {runs.map((run, runIndex) => (
           <article
             className="artifact-run"

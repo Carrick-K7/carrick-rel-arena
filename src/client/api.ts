@@ -68,6 +68,15 @@ export async function createSession(
   return payload.session;
 }
 
+export async function getSession(
+  sessionId: string,
+): Promise<PublicSession> {
+  const payload = await request<{ session: PublicSession }>(
+    `${API_BASE}/sessions/${encodeURIComponent(sessionId)}`,
+  );
+  return payload.session;
+}
+
 export async function playTurn(
   sessionId: string,
   text: string,

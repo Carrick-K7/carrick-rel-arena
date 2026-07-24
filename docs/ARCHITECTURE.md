@@ -14,6 +14,18 @@ Carrick Games 的运行形态是静态页面 + Canvas 游戏类，当前发布�
 
 Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继续由 Carrick Games 静态发布目录处理。应用通过 `APP_BASE_PATH=/rel-arena` 同时生成前端资源地址和服务端前缀兼容路由。
 
+前端使用无依赖的 History API 路由，并由 Express/Vite SPA fallback 支持深链：
+
+| 页面 | 路径 |
+|---|---|
+| 关卡目录 | `/rel-arena/` |
+| 身份与场景简报 | `/rel-arena/scenarios/:scenarioId` |
+| 对话 | `/rel-arena/sessions/:sessionId` |
+| 结算 | `/rel-arena/sessions/:sessionId/result` |
+| 已完成章节回忆 | `/rel-arena/scenarios/:scenarioId/memories` |
+
+对话和结算深链通过 `GET /api/sessions/:sessionId` 恢复服务端 TTL 内的权威状态；会话过期时替换回关卡目录。结算 URL 替换对应的对话历史项，避免浏览器后退进入已经结束但无法继续输入的页面。页面 URL 不写入 `localStorage`。
+
 ## 2. 逻辑架构
 
 ```text

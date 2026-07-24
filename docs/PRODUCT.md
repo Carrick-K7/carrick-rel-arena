@@ -42,6 +42,8 @@
 8. **结算**：确定性结局、称号、点评、目标判定、关键对话复盘。
 9. **复玩与收藏**：同关重试、返回目录、分身份最佳成绩与结局收藏。
 
+页面级阶段使用独立 URL：关卡目录 `/`、简报 `/scenarios/:scenarioId`、对话 `/sessions/:sessionId`、结算 `/sessions/:sessionId/result`、回忆 `/scenarios/:scenarioId/memories`。筛选和卡片选中仍是首页局部交互。浏览器刷新和前进后退需要恢复对应页面；服务端会话过期时安全返回关卡目录。
+
 ## 4. 状态与结局
 
 权威状态统一为：

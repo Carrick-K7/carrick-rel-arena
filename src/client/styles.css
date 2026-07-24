@@ -4398,6 +4398,26 @@ figure {
   gap: 28px;
 }
 
+.artifact-library__empty {
+  padding: clamp(42px, 8vw, 84px) 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.artifact-library__empty strong {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.artifact-library__empty p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .artifact-run {
   overflow: hidden;
   border: 1px solid var(--line);

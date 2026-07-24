@@ -18,6 +18,7 @@ import {
   getCapabilities,
   getMediaGeneration,
   getScenarios,
+  getSession,
   playTurn,
   verifyMediaAccess,
 } from './api.js';
@@ -53,6 +54,13 @@ import {
   saveProgress,
   withPreferredGender,
 } from './progress.js';
+import {
+  initializeAppHistory,
+  readAppRoute,
+  returnToAppRoot,
+  writeAppRoute,
+  type AppRoute,
+} from './routing.js';
 import { defaultScenarioId } from './scenario-filters.js';
 import {
   speakLine,
@@ -72,7 +80,14 @@ const VIDEO_CLIENT_TIMEOUT_MS = 630_000;
 const MAX_CONCURRENT_IMAGE_GENERATIONS = 3;
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>('select');
+  const initialRouteRef = useRef<AppRoute | null>(readAppRoute());
+  const [screen, setScreen] = useState<Screen>(
+    initialRouteRef.current?.screen ?? 'select',
+  );
+  const [routeLoading, setRouteLoading] = useState(
+    initialRouteRef.current?.screen !== undefined &&
+      initialRouteRef.current.screen !== 'select',
+  );
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [playerGender, setPlayerGender] = useState<Gender>('male');
   const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
@@ -106,19 +121,28 @@ export function App() {
   const stopRecognitionRef = useRef<(() => void) | null>(null);
   const requestedMediaRef = useRef(new Set<string>());
   const artifactRunIdsRef = useRef(new Map<string, string>());
+  const routeRestoreRef = useRef(0);
   const mountedRef = useRef(true);
   const speechInputSupported =
     typeof window !== 'undefined' && supportsSpeechInput();
 
   useEffect(() => {
     mountedRef.current = true;
+    initializeAppHistory();
     let active = true;
     Promise.all([getScenarios(), getCapabilities()])
       .then(([nextScenarios, nextCapabilities]) => {
         if (!active) return;
         setScenarios(nextScenarios);
         setCapabilities(nextCapabilities);
-        setSelectedScenarioId(defaultScenarioId(nextScenarios, progress));
+        const route = readAppRoute();
+        if (!route) {
+          writeAppRoute({ screen: 'select' }, { replace: true });
+        }
+        void restoreRoute(
+          route ?? { screen: 'select' },
+          nextScenarios,
+        );
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -133,10 +157,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!scenarios) return;
+    const handlePopState = () => {
+      const route = readAppRoute();
+      if (!route) {
+        writeAppRoute({ screen: 'select' }, { replace: true });
+      }
+      void restoreRoute(route ?? { screen: 'select' }, scenarios);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [progress.preferredGender, scenarios]);
+
+  useEffect(() => {
     if (screen !== 'select' || !selectedScenarioId) return;
     let active = true;
     setPreviewLoading(true);
-    setError(null);
     void getBriefing(selectedScenarioId, progress.preferredGender)
       .then((nextBriefing) => {
         if (active) setSelectedBriefing(nextBriefing);
@@ -155,6 +191,28 @@ export function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
   }, [screen]);
+
+  useEffect(() => {
+    if (screen === 'briefing' && briefing) {
+      document.title = `${briefing.title} · 关系修炼`;
+      return;
+    }
+    if ((screen === 'playing' || screen === 'result') && session) {
+      document.title =
+        screen === 'result'
+          ? `${session.verdict?.title ?? '结算'} · 关系修炼`
+          : `${session.briefing.title} · 对话`;
+      return;
+    }
+    if (screen === 'archive' && archiveScenarioId && scenarios) {
+      const scenario = scenarios.find(
+        (candidate) => candidate.id === archiveScenarioId,
+      );
+      document.title = `${scenario?.title ?? '章节'}回忆 · 关系修炼`;
+      return;
+    }
+    document.title = '关系修炼 · 八段关系对话挑战';
+  }, [archiveScenarioId, briefing, scenarios, screen, session]);
 
   useEffect(() => {
     if (
@@ -457,7 +515,103 @@ export function App() {
     session,
   ]);
 
+  async function restoreRoute(
+    route: AppRoute,
+    availableScenarios: ScenarioSummary[],
+  ) {
+    const restoreId = routeRestoreRef.current + 1;
+    routeRestoreRef.current = restoreId;
+    stopSpeaking();
+    setSpeakingEntryId(null);
+    setSettingsOpen(false);
+    setError(null);
+
+    if (route.screen === 'select') {
+      setScreen('select');
+      setBriefing(null);
+      setArchiveScenarioId(null);
+      setSelectedScenarioId((current) =>
+        current && availableScenarios.some(({ id }) => id === current)
+          ? current
+          : defaultScenarioId(availableScenarios, progress),
+      );
+      setRouteLoading(false);
+      return;
+    }
+
+    if (route.screen === 'archive') {
+      setSelectedScenarioId(route.scenarioId);
+      setArchiveScenarioId(route.scenarioId);
+      setBriefing(null);
+      setScreen('archive');
+      setRouteLoading(false);
+      return;
+    }
+
+    setRouteLoading(true);
+    try {
+      if (route.screen === 'briefing') {
+        const gender = progress.preferredGender;
+        const nextBriefing = await getBriefing(
+          route.scenarioId,
+          gender,
+        );
+        if (routeRestoreRef.current !== restoreId) return;
+        setSelectedScenarioId(route.scenarioId);
+        setPlayerGender(gender);
+        setBriefing(nextBriefing);
+        setArchiveScenarioId(null);
+        setSession(null);
+        setScreen('briefing');
+        return;
+      }
+
+      const nextSession = await getSession(route.sessionId);
+      if (routeRestoreRef.current !== restoreId) return;
+      const actualScreen =
+        nextSession.state.phase === 'result' ? 'result' : 'playing';
+      setSelectedScenarioId(nextSession.state.scenarioId);
+      setPlayerGender(nextSession.state.playerGender);
+      setBriefing(nextSession.briefing);
+      setArchiveScenarioId(null);
+      setSession(nextSession);
+      setDraft('');
+      setPendingLine(null);
+      setScreen(actualScreen);
+      if (route.screen !== actualScreen) {
+        writeAppRoute(
+          {
+            screen: actualScreen,
+            sessionId: nextSession.state.sessionId,
+          },
+          { replace: true },
+        );
+      }
+    } catch (routeError) {
+      if (routeRestoreRef.current !== restoreId) return;
+      setError(
+        routeError instanceof ApiError &&
+          (routeError.status === 404 || routeError.status === 410)
+          ? '这段对话已经结束或过期，请重新选择场景。'
+          : errorMessage(routeError),
+      );
+      setScreen('select');
+      setBriefing(null);
+      setArchiveScenarioId(null);
+      setSession(null);
+      setSelectedScenarioId(
+        defaultScenarioId(availableScenarios, progress),
+      );
+      writeAppRoute({ screen: 'select' }, { replace: true });
+    } finally {
+      if (routeRestoreRef.current === restoreId) {
+        setRouteLoading(false);
+      }
+    }
+  }
+
   function selectScenario(scenarioId: ScenarioId) {
+    setError(null);
     setSelectedScenarioId(scenarioId);
   }
 
@@ -477,6 +631,10 @@ export function App() {
       setBriefing(nextBriefing);
       setSession(null);
       setScreen('briefing');
+      writeAppRoute({
+        screen: 'briefing',
+        scenarioId: selectedScenarioId,
+      });
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
@@ -512,6 +670,10 @@ export function App() {
       const nextSession = await createSession(briefing.id, playerGender);
       setSession(nextSession);
       setScreen('playing');
+      writeAppRoute({
+        screen: 'playing',
+        sessionId: nextSession.state.sessionId,
+      });
       setDraft('');
       setPendingLine(null);
       setMediaByKey({});
@@ -559,6 +721,13 @@ export function App() {
           return next;
         });
         setScreen('result');
+        writeAppRoute(
+          {
+            screen: 'result',
+            sessionId: result.session.state.sessionId,
+          },
+          { replace: true },
+        );
       }
     } catch (turnError) {
       setError(errorMessage(turnError));
@@ -632,10 +801,11 @@ export function App() {
       setMediaByKey({});
       requestedMediaRef.current.clear();
     }
-    setBriefing(null);
     setDraft('');
     setPendingLine(null);
     setError(null);
+    if (returnToAppRoot()) return;
+    setBriefing(null);
     setScreen('select');
   }
 
@@ -651,10 +821,12 @@ export function App() {
   function openArtifactLibrary(scenarioId: ScenarioId) {
     setArchiveScenarioId(scenarioId);
     setScreen('archive');
+    writeAppRoute({ screen: 'archive', scenarioId });
     window.scrollTo({ top: 0, left: 0 });
   }
 
   function closeArtifactLibrary() {
+    if (returnToAppRoot()) return;
     setArchiveScenarioId(null);
     setScreen('select');
   }
@@ -748,13 +920,16 @@ export function App() {
     updateModalities(withOutput(modalities, output));
   }
 
-  if (!scenarios) {
+  if (!scenarios || routeLoading) {
     return (
       <main className="loading-screen">
         <span className="loading-mark">
           <BrandLogo compact />
         </span>
-        <p>{error ?? '正在整理八关目录…'}</p>
+        <p>
+          {error ??
+            (routeLoading ? '正在恢复当前页面…' : '正在整理八关目录…')}
+        </p>
         {error && (
           <button type="button" onClick={() => window.location.reload()}>
             重新连接
@@ -791,8 +966,12 @@ export function App() {
 
   let content;
   if (screen === 'archive' && archiveScenarioId) {
+    const archiveScenario = scenarios.find(
+      (scenario) => scenario.id === archiveScenarioId,
+    );
     content = (
       <ArtifactLibraryScreen
+        scenarioTitle={archiveScenario?.title ?? '章节回忆'}
         runs={artifactRunsForScenario(
           artifactLibrary,
           archiveScenarioId,
