@@ -294,6 +294,20 @@ app.get(
   },
 );
 
+if (mediaConfig.archiveDir) {
+  app.use(
+    '/api/media/files',
+    express.static(mediaConfig.archiveDir, {
+      dotfiles: 'deny',
+      etag: true,
+      fallthrough: true,
+      immutable: true,
+      index: false,
+      maxAge: '365d',
+    }),
+  );
+}
+
 app.get(
   '/api/admin/usage',
   requireUsageAdmin,

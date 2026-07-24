@@ -283,6 +283,32 @@ test('uses per-turn images and creates one whole-session memory film', async ({
   await expect(page.getByLabel('本局回忆短片')).toContainText(
     /第 \d 轮/,
   );
+
+  await page.getByTestId('back-to-levels').click();
+  await page.reload();
+  await page.getByTestId('scenario-card-rain-check').click();
+  await expect(page.getByTestId('scenario-card-rain-check')).toContainText(
+    '回忆 1',
+  );
+  await page.getByTestId('open-artifact-library').click();
+  await expect(page.getByTestId('artifact-library')).toBeVisible();
+  await expect(page.getByTestId('artifact-run')).toHaveCount(1);
+  expect(
+    await page.getByTestId('artifact-library').locator('img').count(),
+  ).toBeGreaterThan(1);
+  await expect(page.getByTestId('archived-video')).toBeVisible();
+  await expect(page.getByTestId('artifact-library')).not.toContainText(
+    genericStrongLine,
+  );
+
+  const artifactStorage = await page.evaluate(() =>
+    window.localStorage.getItem(
+      'relationship-training:artifacts:v1',
+    ),
+  );
+  expect(artifactStorage).not.toContain(genericStrongLine);
+  expect(artifactStorage).not.toContain('sessionId');
+  expect(artifactStorage).not.toContain('transcript');
 });
 
 test('enters and leaves a briefing and supports both player identities', async ({
@@ -409,6 +435,36 @@ test('clears local progress after confirmation', async ({ page }) => {
         },
       }),
     );
+    window.localStorage.setItem(
+      'relationship-training:artifacts:v1',
+      JSON.stringify({
+        version: 1,
+        runs: [
+          {
+            id: 'archive-1',
+            scenarioId: 'weekend-market',
+            scenarioTitle: '周五六点',
+            playerGender: 'male',
+            playerName: '徐坤',
+            characterName: '秋雾',
+            tier: 'S',
+            endingTitle: '周末有约',
+            completedAt: '2026-07-18T08:00:00.000Z',
+            updatedAt: '2026-07-18T08:00:00.000Z',
+            images: [
+              {
+                id: 'image-1',
+                round: 0,
+                label: '开场',
+                url: 'https://example.com/image.jpg',
+                provider: 'ark',
+              },
+            ],
+            video: null,
+          },
+        ],
+      }),
+    );
   });
   await page.goto('./');
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
@@ -420,6 +476,13 @@ test('clears local progress after confirmation', async ({ page }) => {
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
     '未完成',
   );
+  expect(
+    await page.evaluate(() =>
+      window.localStorage.getItem(
+        'relationship-training:artifacts:v1',
+      ),
+    ),
+  ).toBeNull();
 });
 
 test('keeps selection and gameplay usable at a mobile viewport', async ({

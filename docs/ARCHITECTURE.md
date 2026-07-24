@@ -19,7 +19,7 @@ Caddy 只把 `/rel-arena/*` 反向代理到 `127.0.0.1:3100`，其余路径继�
 ```text
 React Client
   ├─ Scenario Select / Briefing / Dialogue / Result
-  ├─ Local progress (completion and records only)
+  ├─ Local progress + artifact index (no dialogue)
   ├─ Modality settings (text/voice/image/video)
   ├─ State-driven Portrait Renderer
   ├─ Speech input + TTS player
@@ -220,6 +220,7 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 | POST | `/api/media/access` | 校验页面媒体访问密钥，不返回供应商凭证 |
 | POST | `/api/media/generations` | 从当前会话的服务端视觉节拍创建逐轮图像或结算回忆视频 |
 | GET | `/api/media/generations/:id` | 查询当前进程内的媒体生成状态与结果 URL |
+| GET | `/api/media/files/:filename` | 读取已复制到持久目录的不可猜测媒体制品 |
 | GET | `/api/admin/usage` | 当日模型/TTS 聚合、阈值与最近告警 |
 | GET | `/api/admin/metrics` | Prometheus 文本指标 |
 
@@ -227,7 +228,7 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 
 用量日志采用 JSONL，只包含 UUID、Provider、模型、Agent、Token、缓存、延迟、重试、成功状态和成本估算，不包含 Prompt、台词或完整转录。默认写入 `var/usage-events.jsonl`；告警独立写入 `var/usage-alerts.jsonl`。服务启动时恢复最近 5,000 条技术事件和最近 50 条告警，使当日统计可跨进程重启。真实供应商返回的 Token 标记为 `provider_reported`，Mock 采用字符数近似并标记为 `estimated`。
 
-浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份；使用 `relationship-training:modalities:v1` 保存输入/输出模态。浏览器不保存媒体访问密钥、会话 ID、对话正文、玩家输入或关系数值。
+浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份；使用 `relationship-training:modalities:v1` 保存输入/输出模态；使用 `relationship-training:artifacts:v1` 保存已完成章节的匿名制品索引。该索引只包含关卡、身份、评级、完成时间、回合标签和稳定媒体 URL，不包含媒体访问密钥、会话 ID、对话正文、玩家输入或关系数值。
 
 ## 8. 模型与成本可行性
 
@@ -267,11 +268,11 @@ DeepSeek 文本方案搭配小米 MiMo、OpenAI TTS 或浏览器系统语音。�
 
 ### 火山方舟媒体生成边界
 
-玩家触发的动态图像使用 Seedream，结算回忆视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。服务端为开场和每轮回复签发 `VisualBeat`，媒体接口只接受 `sessionId + beatId + kind`，拒绝客户端自定义 Prompt。图像允许引用该会话的任意有效节拍；视频只允许在结算后由最后一个节拍触发。相同会话、节拍和媒体类型幂等，媒体任务在进程内保存并随 TTL 过期。
+玩家触发的动态图像使用 Seedream，结算回忆视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。服务端为开场和每轮回复签发 `VisualBeat`，媒体接口只接受 `sessionId + beatId + kind`，拒绝客户端自定义 Prompt。图像允许引用该会话的任意有效节拍；视频只允许在结算后由最后一个节拍触发。相同会话、节拍和媒体类型幂等，媒体任务状态在进程内保存并随 TTL 过期。
 
 每张图片固定传入秋雾两张状态原型和徐坤原型；存在上一张成功图片时一并作为连续性参考。图片 Prompt 使用本轮对话、表演动作、事件和关系状态理解情绪，同时明确禁止模型渲染文字；页面用真实对话 DOM 覆盖位图，避免乱码。结算视频选取开场、评判关键轮次和最后一轮的成功图片，连同人物原型作为最多九张 Seedance 参考图。
 
-默认视频规格是 480p、16:9、15 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。媒体模型会临时接收生成所必需的对话上下文，但图片、视频链接、Prompt 和对话正文都不写入浏览器持久化数据或服务端长期存储。
+默认视频规格是 480p、16:9、15 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。媒体模型会临时接收生成所必需的对话上下文。Ark 成功结果会下载到 `MEDIA_ARCHIVE_DIR`（生产默认为 `/var/lib/carrick/relationship-arena/media`），因此制品跨原子发布与进程重启保留；Prompt 和对话正文仍不进入长期存储。
 
 DeepSeek Chat Completions 的计量读取 `prompt_tokens`、`prompt_cache_hit_tokens`、`prompt_cache_miss_tokens`、`completion_tokens`、`reasoning_tokens` 和 `total_tokens`。缓存命中量按 DeepSeek 缓存单价计算。
 

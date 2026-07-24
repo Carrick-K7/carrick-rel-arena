@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GameAgents } from './agents.js';
 import {
@@ -6,6 +9,7 @@ import {
   loadPrototypeReferences,
   MediaError,
   MediaGenerationService,
+  persistMediaAsset,
   type MediaConfig,
 } from './media.js';
 import { MockAiProvider } from './providers/mock.js';
@@ -26,6 +30,7 @@ const config: MediaConfig = {
   videoDurationSeconds: 15,
   videoPollIntervalMs: 1_000,
   videoTimeoutMs: 30_000,
+  archiveDir: null,
 };
 
 function createService() {
@@ -42,6 +47,35 @@ function createService() {
 }
 
 describe('MediaGenerationService', () => {
+  it('copies provider media into a stable release-independent path', async () => {
+    const archiveDir = mkdtempSync(
+      path.join(tmpdir(), 'relationship-media-'),
+    );
+    try {
+      const url = await persistMediaAsset({
+        sourceUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+        kind: 'image',
+        generationId: '11111111-1111-4111-8111-111111111111',
+        archiveDir,
+        publicBaseUrl: 'https://example.com/rel-arena/',
+      });
+      expect(url).toBe(
+        'https://example.com/rel-arena/api/media/files/11111111-1111-4111-8111-111111111111.png',
+      );
+      expect(
+        existsSync(
+          path.join(
+            archiveDir,
+            '11111111-1111-4111-8111-111111111111.png',
+          ),
+        ),
+      ).toBe(true);
+    } finally {
+      rmSync(archiveDir, { force: true, recursive: true });
+    }
+  });
+
   it('inlines local prototype images so Ark does not fetch public URLs', () => {
     const references = loadPrototypeReferences(
       'https://example.invalid/rel-arena/',

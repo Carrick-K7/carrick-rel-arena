@@ -15,7 +15,7 @@
 - `mock`、`openai`、`deepseek` 三种文本模型模式。
 - 每个 Agent 调用的 Token、缓存、延迟、重试、成本估算和阈值告警。
 - 内存会话和自动过期机制，每局关系状态保持独立。
-- 仅在浏览器本机保存完成记录、男女身份最佳成绩和结局收藏；不保存对话正文。
+- 仅在浏览器本机保存完成记录、男女身份最佳成绩、结局收藏和匿名媒体制品索引；不保存对话正文。
 
 ## 本地运行
 
@@ -65,9 +65,11 @@ ARK_IMAGE_MODEL=doubao-seedream-5-0-260128
 ARK_VIDEO_MODEL=doubao-seedance-2-0-260128
 ```
 
-`ARK_API_KEY` 是服务端调用火山方舟的真实凭证；`MEDIA_ACCESS_KEY` 是玩家在设置页输入的产品访问密钥，用来避免公开访客误触发付费生成。两者用途不同。媒体模型会临时接收生成当前画面和整局回忆所需的对话上下文，但应用不长期保存这些内容。访问密钥只保留在当前页面内存，刷新即清除；本机只持久化所选模态。
+`ARK_API_KEY` 是服务端调用火山方舟的真实凭证；`MEDIA_ACCESS_KEY` 是玩家在设置页输入的产品访问密钥，用来避免公开访客误触发付费生成。两者用途不同。媒体模型会临时接收生成当前画面和整局回忆所需的对话上下文，但应用不长期保存对话正文。访问密钥只保留在当前页面内存，刷新即清除；本机持久化所选模态和匿名制品索引。
 
 内容能力逐层增强：文字对话和字幕是必备主路径；立绘作为随包静态资产始终可用；语音密钥缺失时使用浏览器能力；媒体 Provider 未配置时禁用图像和视频选项。图像和视频模式都逐轮生成 Seedream 图片，结算后视频模式再生成一次 480p、16:9、15 秒无声 Seedance 回忆短片；生成不阻塞文字对话。
+
+真实媒体成功后会复制到 `MEDIA_ARCHIVE_DIR`。生产默认使用 `/var/lib/carrick/relationship-arena/media`，不会写入只读发布目录；已完成关卡可从“查看回忆”打开历次生成的图片和视频。
 
 ChatGPT Plus/Pro 等订阅可用于 Codex 辅助开发。应用运行时的 OpenAI、DeepSeek、MiMo 和火山方舟调用各自使用独立 API 凭证与计费账户；`mock` 模式可直接运行完整游戏、语音回退和全部测试。
 
@@ -94,20 +96,11 @@ curl http://127.0.0.1:3100/api/admin/metrics
 
 内置价格表覆盖默认的 `gpt-5.4-mini`、`deepseek-v4-flash` 和 `deepseek-v4-pro`。切换其他模型时应在环境变量中显式提供输入、缓存输入和输出的每百万 Token 单价。
 
-## 本机生产服务
+## 生产部署
 
-仓库包含 [systemd 单元](deploy/relationship-arena.service) 和 [生产环境模板](deploy/relationship-arena.env.example)。构建后安装到本机：
+推送到 `main` 后由 `.github/workflows/deploy.yml` 完成验证、打包和原子发布。生产 release 位于 `/srv/carrick/relationship-arena/releases/<git-sha>/`，`current` 软链接只在新 release 就绪后切换；运行时数据位于 `/var/lib/carrick/relationship-arena/`，不会写入只读 release。
 
-```bash
-sudo install -d -m 0750 /etc/relationship-arena
-sudo install -m 0640 deploy/relationship-arena.env.example /etc/relationship-arena/relationship-arena.env
-sudo install -m 0644 deploy/relationship-arena.service /etc/systemd/system/relationship-arena.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now relationship-arena.service
-curl -fsS http://127.0.0.1:3100/api/health
-```
-
-生产构建使用 `/rel-arena/` 作为前端和 API 公共前缀，服务继续监听回环地址。将 [Caddy 示例](deploy/relationship-arena.caddy.example) 合并到现有 `games.carrick7.com` 站点后，公开入口为：
+共享 Caddy、主机级 systemd 单元、监听端口和监控由私有 `Carrick-K7/carrick-ops` 仓库管理，应用仓库不直接覆盖这些配置。生产构建使用 `/rel-arena/` 作为前端和 API 公共前缀，公开入口为：
 
 ```text
 https://games.carrick7.com/rel-arena/

@@ -25,8 +25,10 @@ interface ScenarioSelectProps {
   previewLoading: boolean;
   busy: boolean;
   error: string | null;
+  artifactCounts: Partial<Record<ScenarioId, number>>;
   onSelect: (scenarioId: ScenarioId) => void;
   onEnter: () => void;
+  onOpenArtifacts: (scenarioId: ScenarioId) => void;
   onOpenSettings: () => void;
   onClearProgress: () => void;
 }
@@ -79,8 +81,10 @@ export function ScenarioSelect({
   previewLoading,
   busy,
   error,
+  artifactCounts,
   onSelect,
   onEnter,
+  onOpenArtifacts,
   onOpenSettings,
   onClearProgress,
 }: ScenarioSelectProps) {
@@ -104,7 +108,7 @@ export function ScenarioSelect({
   function confirmClear() {
     if (
       window.confirm(
-        '确定清除本机的完成记录、最佳成绩和结局收藏吗？此操作不可恢复。',
+        '确定清除本机的完成记录、最佳成绩、结局收藏和回忆索引吗？此操作不可恢复。',
       )
     ) {
       onClearProgress();
@@ -304,6 +308,12 @@ export function ScenarioSelect({
                       <TierMark
                         tier={scenarioProgress?.genders.female?.bestTier}
                       />
+                      {(artifactCounts[scenario.id] ?? 0) > 0 && (
+                        <>
+                          <i>·</i>
+                          回忆 {artifactCounts[scenario.id]}
+                        </>
+                      )}
                     </span>
                   </span>
                 </span>
@@ -364,16 +374,34 @@ export function ScenarioSelect({
                 <strong>{selectedBriefing.character.name}</strong>
                 <p>{selectedBriefing.character.personality}</p>
               </div>
-              <button
-                className="scenario-preview__enter"
-                type="button"
-                onClick={onEnter}
-                disabled={busy || previewLoading}
-                data-testid="enter-scenario"
-              >
-                查看场景
-                <ArrowIcon />
-              </button>
+              <div className="scenario-preview__actions">
+                {(artifactCounts[selectedBriefing.id] ?? 0) > 0 && (
+                  <button
+                    className="scenario-preview__memories"
+                    type="button"
+                    onClick={() =>
+                      onOpenArtifacts(selectedBriefing.id)
+                    }
+                    disabled={busy || previewLoading}
+                    data-testid="open-artifact-library"
+                  >
+                    查看回忆
+                    <span>
+                      {artifactCounts[selectedBriefing.id]} 次
+                    </span>
+                  </button>
+                )}
+                <button
+                  className="scenario-preview__enter"
+                  type="button"
+                  onClick={onEnter}
+                  disabled={busy || previewLoading}
+                  data-testid="enter-scenario"
+                >
+                  查看场景
+                  <ArrowIcon />
+                </button>
+              </div>
             </>
           )}
         </aside>

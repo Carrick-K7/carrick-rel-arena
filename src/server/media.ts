@@ -1,6 +1,14 @@
 import { timingSafeEqual } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import {
+  createWriteStream,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from 'node:fs';
 import path from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import {
   MediaGenerationSchema,
   type MediaGeneration,
@@ -26,6 +34,7 @@ export interface MediaConfig {
   videoDurationSeconds: number;
   videoPollIntervalMs: number;
   videoTimeoutMs: number;
+  archiveDir: string | null;
 }
 
 interface MediaResult {
@@ -130,6 +139,11 @@ export function readMediaConfig(): MediaConfig {
       30_000,
       900_000,
     ),
+    archiveDir:
+      cleanText(process.env.MEDIA_ARCHIVE_DIR) ??
+      (process.env.NODE_ENV === 'production'
+        ? '/var/lib/carrick/relationship-arena/media'
+        : null),
   };
 }
 
@@ -303,6 +317,28 @@ export class MediaGenerationService {
               record.prompt,
               record.references,
             );
+      if (
+        record.provider === 'ark' &&
+        this.config.archiveDir
+      ) {
+        try {
+          result.url = await persistMediaAsset({
+            sourceUrl: result.url,
+            kind: record.kind,
+            generationId: record.id,
+            archiveDir: this.config.archiveDir,
+            publicBaseUrl: this.config.publicBaseUrl,
+          });
+        } catch (archiveError) {
+          const archiveMessage =
+            archiveError instanceof Error
+              ? archiveError.message
+              : 'unknown archive error';
+          console.error(
+            `[media:archive:${record.kind}] ${archiveMessage.replaceAll(/\s+/g, ' ')}`,
+          );
+        }
+      }
       record.status = 'succeeded';
       record.url = result.url;
       record.usageTokens = result.usageTokens;
@@ -392,6 +428,90 @@ export class MediaGenerationService {
   private prototypeReferences(): string[] {
     return [...this.prototypeImages];
   }
+}
+
+const MAX_ARCHIVE_BYTES: Record<MediaKind, number> = {
+  image: 25 * 1024 * 1024,
+  video: 200 * 1024 * 1024,
+};
+
+export async function persistMediaAsset(input: {
+  sourceUrl: string;
+  kind: MediaKind;
+  generationId: string;
+  archiveDir: string;
+  publicBaseUrl: string;
+}): Promise<string> {
+  mkdirSync(input.archiveDir, { recursive: true, mode: 0o750 });
+  const response = await fetch(input.sourceUrl, {
+    signal: AbortSignal.timeout(90_000),
+  });
+  if (!response.ok || !response.body) {
+    throw new Error(
+      `media download failed with HTTP ${response.status}`,
+    );
+  }
+
+  const contentType = (
+    response.headers.get('content-type') ?? ''
+  ).toLowerCase();
+  const extension = mediaExtension(input.kind, contentType);
+  const filename = `${input.generationId}.${extension}`;
+  const destination = path.join(input.archiveDir, filename);
+  const temporary = `${destination}.part`;
+  const declaredLength = Number(
+    response.headers.get('content-length') ?? 0,
+  );
+  const maxBytes = MAX_ARCHIVE_BYTES[input.kind];
+  if (declaredLength > maxBytes) {
+    throw new Error(
+      `${input.kind} archive exceeds ${maxBytes} bytes`,
+    );
+  }
+
+  let received = 0;
+  const limiter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length;
+      if (received > maxBytes) {
+        callback(
+          new Error(`${input.kind} archive exceeds ${maxBytes} bytes`),
+        );
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+
+  try {
+    await pipeline(
+      Readable.fromWeb(response.body),
+      limiter,
+      createWriteStream(temporary, {
+        flags: 'wx',
+        mode: 0o640,
+      }),
+    );
+    renameSync(temporary, destination);
+  } catch (error) {
+    rmSync(temporary, { force: true });
+    throw error;
+  }
+
+  return new URL(
+    `api/media/files/${filename}`,
+    normalizePublicBaseUrl(input.publicBaseUrl),
+  ).toString();
+}
+
+function mediaExtension(
+  kind: MediaKind,
+  contentType: string,
+): string {
+  if (kind === 'video') return 'mp4';
+  if (contentType.includes('image/webp')) return 'webp';
+  if (contentType.includes('image/png')) return 'png';
+  return 'jpg';
 }
 
 export function loadPrototypeReferences(

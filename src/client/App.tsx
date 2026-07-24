@@ -21,6 +21,14 @@ import {
   playTurn,
   verifyMediaAccess,
 } from './api.js';
+import {
+  artifactRunsForScenario,
+  clearArtifactLibrary,
+  loadArtifactLibrary,
+  recordArtifactRun,
+  saveArtifactLibrary,
+} from './artifacts.js';
+import { ArtifactLibraryScreen } from './components/ArtifactLibraryScreen.js';
 import { Briefing } from './components/Briefing.js';
 import { BrandLogo } from './components/BrandLogo.js';
 import {
@@ -53,7 +61,12 @@ import {
   supportsSpeechInput,
 } from './speech.js';
 
-type Screen = 'select' | 'briefing' | 'playing' | 'result';
+type Screen =
+  | 'select'
+  | 'briefing'
+  | 'playing'
+  | 'result'
+  | 'archive';
 const IMAGE_CLIENT_TIMEOUT_MS = 195_000;
 const VIDEO_CLIENT_TIMEOUT_MS = 630_000;
 const MAX_CONCURRENT_IMAGE_GENERATIONS = 3;
@@ -71,6 +84,11 @@ export function App() {
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
   const [progress, setProgress] = useState(loadProgress);
+  const [artifactLibrary, setArtifactLibrary] = useState(
+    loadArtifactLibrary,
+  );
+  const [archiveScenarioId, setArchiveScenarioId] =
+    useState<ScenarioId | null>(null);
   const [draft, setDraft] = useState('');
   const [pendingLine, setPendingLine] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,6 +105,7 @@ export function App() {
   const [mediaRetryRevision, setMediaRetryRevision] = useState(0);
   const stopRecognitionRef = useRef<(() => void) | null>(null);
   const requestedMediaRef = useRef(new Set<string>());
+  const artifactRunIdsRef = useRef(new Map<string, string>());
   const mountedRef = useRef(true);
   const speechInputSupported =
     typeof window !== 'undefined' && supportsSpeechInput();
@@ -251,6 +270,96 @@ export function App() {
     capabilities?.imageGeneration,
     session,
   ]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      session.state.phase !== 'result' ||
+      !session.verdict
+    ) {
+      return;
+    }
+    const images = session.visualBeats.flatMap((beat) => {
+      const generation =
+        mediaByKey[
+          mediaKey(session.state.sessionId, beat.id, 'image')
+        ];
+      if (generation?.status !== 'succeeded' || !generation.url) {
+        return [];
+      }
+      return [
+        {
+          id: generation.id,
+          round: beat.round,
+          label:
+            beat.round === 0
+              ? '开场'
+              : beat.kind === 'ending'
+                ? `第 ${beat.round} 轮 · 结局`
+                : `第 ${beat.round} 轮`,
+          url: generation.url,
+          provider: generation.provider,
+        },
+      ];
+    });
+    const finalBeat = session.visualBeats.at(-1);
+    const videoGeneration = finalBeat
+      ? mediaByKey[
+          mediaKey(
+            session.state.sessionId,
+            finalBeat.id,
+            'video',
+          )
+        ]
+      : null;
+    const video =
+      videoGeneration?.status === 'succeeded' &&
+      videoGeneration.url
+        ? {
+            id: videoGeneration.id,
+            url: videoGeneration.url,
+            provider: videoGeneration.provider,
+          }
+        : null;
+    if (images.length === 0 && !video) return;
+
+    let archiveId = artifactRunIdsRef.current.get(
+      session.state.sessionId,
+    );
+    if (!archiveId) {
+      archiveId =
+        typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `archive-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2)}`;
+      artifactRunIdsRef.current.set(
+        session.state.sessionId,
+        archiveId,
+      );
+    }
+    const now = new Date().toISOString();
+    const verdict = session.verdict;
+    setArtifactLibrary((current) => {
+      const next = recordArtifactRun(current, {
+        id: archiveId,
+        scenarioId: session.state.scenarioId,
+        scenarioTitle: session.briefing.title,
+        playerGender: session.state.playerGender,
+        playerName: session.briefing.player.name,
+        characterName: session.briefing.character.name,
+        tier: verdict.tier,
+        endingTitle:
+          session.state.activeEvent?.title ?? verdict.title,
+        completedAt: now,
+        updatedAt: now,
+        images,
+        video,
+      });
+      saveArtifactLibrary(next);
+      return next;
+    });
+  }, [mediaByKey, session]);
 
   useEffect(() => {
     if (
@@ -483,18 +592,71 @@ export function App() {
     stopRecognitionRef.current?.();
     stopRecognitionRef.current = null;
     setRecording(false);
-    setSession(null);
+    const keepsImages =
+      session?.state.phase === 'result' &&
+      mediaUnlocked &&
+      (hasOutput(modalities, 'image') ||
+        hasOutput(modalities, 'video')) &&
+      session.visualBeats.some((beat) => {
+        const generation =
+          mediaByKey[
+            mediaKey(session.state.sessionId, beat.id, 'image')
+          ];
+        return (
+          !generation ||
+          generation.status === 'queued' ||
+          generation.status === 'running'
+        );
+      });
+    const finalBeat = session?.visualBeats.at(-1);
+    const finalVideo =
+      session && finalBeat
+        ? mediaByKey[
+            mediaKey(
+              session.state.sessionId,
+              finalBeat.id,
+              'video',
+            )
+          ]
+        : null;
+    const keepsVideo =
+      session?.state.phase === 'result' &&
+      mediaUnlocked &&
+      hasOutput(modalities, 'video') &&
+      (!finalVideo ||
+        finalVideo.status === 'queued' ||
+        finalVideo.status === 'running');
+    const keepGenerating = keepsImages || keepsVideo;
+    if (!keepGenerating) {
+      setSession(null);
+      setMediaByKey({});
+      requestedMediaRef.current.clear();
+    }
     setBriefing(null);
     setDraft('');
     setPendingLine(null);
     setError(null);
-    setMediaByKey({});
-    requestedMediaRef.current.clear();
     setScreen('select');
   }
 
   function resetProgress() {
     setProgress(clearProgress());
+    setArtifactLibrary(clearArtifactLibrary());
+    setSession(null);
+    setMediaByKey({});
+    requestedMediaRef.current.clear();
+    artifactRunIdsRef.current.clear();
+  }
+
+  function openArtifactLibrary(scenarioId: ScenarioId) {
+    setArchiveScenarioId(scenarioId);
+    setScreen('archive');
+    window.scrollTo({ top: 0, left: 0 });
+  }
+
+  function closeArtifactLibrary() {
+    setArchiveScenarioId(null);
+    setScreen('select');
   }
 
   function toggleOutputMode(output: OutputMode) {
@@ -620,9 +782,25 @@ export function App() {
           mediaKey(session.state.sessionId, latestBeat.id, 'video')
         ] ?? null)
       : null;
+  const artifactCounts = Object.fromEntries(
+    scenarios.map((scenario) => [
+      scenario.id,
+      artifactRunsForScenario(artifactLibrary, scenario.id).length,
+    ]),
+  ) as Partial<Record<ScenarioId, number>>;
 
   let content;
-  if (screen === 'result' && session) {
+  if (screen === 'archive' && archiveScenarioId) {
+    content = (
+      <ArtifactLibraryScreen
+        runs={artifactRunsForScenario(
+          artifactLibrary,
+          archiveScenarioId,
+        )}
+        onBack={closeArtifactLibrary}
+      />
+    );
+  } else if (screen === 'result' && session) {
     content = (
       <ResultScreen
         session={session}
@@ -684,8 +862,10 @@ export function App() {
         previewLoading={previewLoading}
         busy={busy}
         error={error}
+        artifactCounts={artifactCounts}
         onSelect={selectScenario}
         onEnter={enterSelectedScenario}
+        onOpenArtifacts={openArtifactLibrary}
         onOpenSettings={() => setSettingsOpen(true)}
         onClearProgress={resetProgress}
       />
