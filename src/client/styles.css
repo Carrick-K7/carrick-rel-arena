@@ -1742,6 +1742,64 @@ figure {
   font-size: 12px;
 }
 
+.generation-progress {
+  width: 100%;
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+
+.generation-progress__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.generation-progress__heading span {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generation-progress__heading strong {
+  flex: none;
+  color: var(--accent-dark);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.generation-progress__track {
+  overflow: hidden;
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: rgba(77, 120, 115, 0.16);
+}
+
+.generation-progress__track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.8s var(--ease-out);
+}
+
+.generation-progress small {
+  display: block;
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.generation-progress--panel {
+  padding: 10px 12px 11px;
+  background: #fff;
+}
+
 .generated-media.is-failed {
   background: var(--soft-red);
 }
@@ -4485,26 +4543,31 @@ figure {
   right: 14px;
   bottom: 14px;
   left: 14px;
-  display: flex;
-  min-height: 42px;
-  padding: 0 14px;
-  align-items: center;
-  gap: 9px;
+  min-height: 64px;
+  padding: 11px 13px 10px;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 12px;
   color: #fff;
   background: rgba(24, 53, 50, 0.67);
   backdrop-filter: blur(12px);
-  font-size: 11px;
 }
 
-.opponent-stage__media-status span {
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spinner 0.8s linear infinite;
+.opponent-stage__media-status .generation-progress,
+.opponent-stage__media-status .generation-progress__heading strong,
+.opponent-stage__media-status .generation-progress small {
+  color: #fff;
+}
+
+.opponent-stage__media-status .generation-progress small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.opponent-stage__media-status .generation-progress__track {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.opponent-stage__media-status .generation-progress__track i {
+  background: #77e5dc;
 }
 
 .opponent-stage__media-fallback {

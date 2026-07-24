@@ -12,6 +12,7 @@ import {
   relationshipProgressLabel,
 } from '../relationship-progress.js';
 import { BrandLogo } from './BrandLogo.js';
+import { GenerationProgress } from './GenerationProgress.js';
 import { MemoryFrame } from './MemoryFrame.js';
 import { Portrait } from './Portrait.js';
 
@@ -409,8 +410,11 @@ function OpponentVisual({
                   className="opponent-stage__media-status"
                   data-testid="generated-media-loading"
                 >
-                  <span />
-                  正在生成{selectedLabel}形象，通常需要 30–90 秒
+                  <GenerationProgress
+                    kind="image"
+                    label={`${selectedLabel}形象`}
+                    generation={generation}
+                  />
                 </div>
               )}
             {mediaRequested &&

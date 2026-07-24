@@ -110,7 +110,8 @@ describe('MiMo speech synthesis', () => {
       messages: [
         {
           role: 'user',
-          content: '用逐渐放软、仍然谨慎的中文语气说。',
+          content:
+            '用逐渐放软、仍然谨慎的中文语气说。保持自然日常对话语速，不刻意放慢，不拖长句尾，不加入不必要的停顿。',
         },
         {
           role: 'assistant',

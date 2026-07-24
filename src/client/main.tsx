@@ -10,7 +10,10 @@ const appRoot: HTMLElement = root;
 async function waitForProductFonts(): Promise<void> {
   if (!('fonts' in document)) return;
   await Promise.all([
-    document.fonts.load('400 16px "Relationship Display"', '关系修炼'),
+    document.fonts.load(
+      '400 16px "Relationship Display"',
+      '练习那些让彼此更靠近的回应 012345678',
+    ),
     document.fonts.load('400 16px "Relationship Sans"', '关系修炼'),
     document.fonts.load('700 16px "Relationship Sans"', '关系修炼'),
     document.fonts.load('400 16px "Relationship Serif"', '关系修炼'),

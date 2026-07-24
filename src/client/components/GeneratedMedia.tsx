@@ -2,6 +2,7 @@ import type {
   MediaGeneration,
   MediaKind,
 } from '../../shared/contracts.js';
+import { GenerationProgress } from './GenerationProgress.js';
 
 interface GeneratedMediaProps {
   kind: MediaKind;
@@ -24,7 +25,12 @@ export function GeneratedMedia({
         data-testid="generated-media-loading"
       >
         <div className="generated-media__skeleton" />
-        <p>正在排队生成{label}…</p>
+        <GenerationProgress
+          kind={kind}
+          label={label}
+          generation={generation}
+          className="generation-progress--panel"
+        />
       </section>
     );
   }
@@ -37,12 +43,12 @@ export function GeneratedMedia({
         data-testid="generated-media-loading"
       >
         <div className="generated-media__skeleton" />
-        <p>
-          正在生成{label}
-          {kind === 'video'
-            ? '，通常需要三到六分钟…'
-            : '，通常需要约一分钟…'}
-        </p>
+        <GenerationProgress
+          kind={kind}
+          label={label}
+          generation={generation}
+          className="generation-progress--panel"
+        />
       </section>
     );
   }

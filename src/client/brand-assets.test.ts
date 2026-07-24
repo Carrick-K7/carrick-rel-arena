@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -26,5 +26,12 @@ describe('brand assets', () => {
       expect(text).toContain('SIL OPEN FONT LICENSE');
       expect(text).toContain('Version 1.1');
     }
+  });
+
+  it('ships the complete display font instead of a stale fixed-copy subset', async () => {
+    const displayFont = await stat(
+      resolve('public/fonts/smiley-sans-display.woff2'),
+    );
+    expect(displayFont.size).toBeGreaterThan(1_000_000);
   });
 });

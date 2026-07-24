@@ -1,12 +1,15 @@
 import type { Gender, Tone } from '../shared/contracts.js';
 
+const NATURAL_PACE =
+  '保持自然日常对话语速，不刻意放慢，不拖长句尾，不加入不必要的停顿。';
+
 const TONE_INSTRUCTIONS: Record<Tone, string> = {
-  icy: '用克制、冰冷、低音量的中文语气说，停顿清楚。',
-  sharp: '用锋利、快速、压着怒气的中文语气说。',
-  quiet: '用安静、靠近耳语、情绪内收的中文语气说。',
-  shaky: '用轻微颤抖、努力保持镇定的中文语气说。',
-  dry: '用干燥、冷幽默、略带讽刺的中文语气说。',
-  soft: '用逐渐放软、仍然谨慎的中文语气说。',
+  icy: `用克制、冰冷、低音量的中文语气说。${NATURAL_PACE}`,
+  sharp: `用锋利、略快、压着怒气但吐字清楚的中文语气说。${NATURAL_PACE}`,
+  quiet: `用安静、情绪内收但清晰可闻的中文语气说。${NATURAL_PACE}`,
+  shaky: `用轻微颤抖、仍在维持镇定的中文语气说。${NATURAL_PACE}`,
+  dry: `用干燥、冷幽默、略带讽刺的中文语气说。${NATURAL_PACE}`,
+  soft: `用逐渐放软、仍然谨慎的中文语气说。${NATURAL_PACE}`,
 };
 
 export interface TtsConfig {

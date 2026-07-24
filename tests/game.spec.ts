@@ -128,6 +128,26 @@ test('uses the new font system and selects a card before entering its briefing',
     })),
   ).toEqual({ display: true, sans: true, serif: true });
 
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable');
+  await cdp.send('CSS.enable');
+  const { root } = await cdp.send('DOM.getDocument');
+  const { nodeId } = await cdp.send('DOM.querySelector', {
+    nodeId: root.nodeId,
+    selector: '.level-intro h1',
+  });
+  const { fonts: renderedHeroFonts } = await cdp.send(
+    'CSS.getPlatformFontsForNode',
+    { nodeId },
+  );
+  expect(renderedHeroFonts).toEqual([
+    expect.objectContaining({
+      familyName: expect.stringContaining('Smiley Sans'),
+      isCustomFont: true,
+      glyphCount: 13,
+    }),
+  ]);
+
   await page.locator('.level-screen').evaluate(async (screen) => {
     await Promise.all(
       screen.getAnimations().map((animation) => animation.finished),
@@ -153,6 +173,35 @@ test('selects modalities and requires an in-memory key for image generation', as
   page,
 }) => {
   test.setTimeout(externalMedia ? 720_000 : 60_000);
+  if (!externalMedia) {
+    let runningResponses = 0;
+    await page.route(
+      /\/api\/media\/generations\/[^/]+$/,
+      async (route) => {
+        const response = await route.fetch();
+        const payload = (await response.json()) as {
+          generation: Record<string, unknown>;
+        };
+        if (runningResponses < 1) {
+          runningResponses += 1;
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          await route.fulfill({
+            response,
+            json: {
+              generation: {
+                ...payload.generation,
+                status: 'running',
+                url: null,
+                error: null,
+              },
+            },
+          });
+          return;
+        }
+        await route.fulfill({ response, json: payload });
+      },
+    );
+  }
   await page.goto('./');
   await page.getByTestId('open-modality-settings').click();
   await expect(page.getByTestId('modality-settings')).toBeVisible();
@@ -201,6 +250,13 @@ test('selects modalities and requires an in-memory key for image generation', as
   await page.getByTestId('scenario-card-weekend-market').click();
   await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
+  await expect(page.getByTestId('media-generation-progress')).toBeVisible();
+  await expect(page.getByTestId('media-generation-progress')).toContainText(
+    /预计 \d+%/,
+  );
+  await expect(page.getByTestId('media-generation-progress')).toContainText(
+    /已等待 \d+ 秒/,
+  );
   await expect(page.getByTestId('generated-media-image')).toBeVisible({
     timeout: mediaGenerationTimeout,
   });

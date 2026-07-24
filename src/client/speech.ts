@@ -6,6 +6,8 @@ let currentUrl: string | null = null;
 let currentOnEnd: (() => void) | null = null;
 let playbackSerial = 0;
 
+export const GENERATED_AUDIO_PLAYBACK_RATE = 1.08;
+
 interface PlaybackCallbacks {
   onStart?: () => void;
   onEnd?: () => void;
@@ -34,6 +36,7 @@ export async function speakLine(
     if (audioBlob) {
       currentUrl = URL.createObjectURL(audioBlob);
       currentAudio = new Audio(currentUrl);
+      currentAudio.playbackRate = GENERATED_AUDIO_PLAYBACK_RATE;
       currentAudio.addEventListener(
         'ended',
         finishPlayback,
@@ -86,8 +89,7 @@ function speakWithBrowser(
   }
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
-  utterance.rate =
-    tone === 'sharp' ? 1.06 : tone === 'shaky' || tone === 'quiet' ? 0.9 : 0.96;
+  utterance.rate = browserSpeechRate(tone);
   const genderPitch = speakerGender === 'male' ? 0.86 : 1.02;
   utterance.pitch =
     tone === 'icy'
@@ -103,6 +105,10 @@ function speakWithBrowser(
   utterance.onend = onEnd;
   utterance.onerror = onEnd;
   window.speechSynthesis.speak(utterance);
+}
+
+export function browserSpeechRate(tone: Tone): number {
+  return tone === 'sharp' ? 1.04 : 1;
 }
 
 function finishPlayback() {
