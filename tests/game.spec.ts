@@ -378,11 +378,11 @@ test('enters and leaves a briefing and supports both player identities', async (
   );
   await expect(page.getByText('秋雾，25 岁')).toBeVisible();
   await expect(page.locator('img[alt^="秋雾"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: /扮演徐坤/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /扮演江影/ })).toBeVisible();
 
   await page.getByTestId('choose-female').click();
-  await expect(page.getByText('徐坤，25 岁')).toBeVisible();
-  await expect(page.locator('img[alt^="徐坤"]')).toBeVisible();
+  await expect(page.getByText('江影，25 岁')).toBeVisible();
+  await expect(page.locator('img[alt^="江影"]')).toBeVisible();
   await expect(page.getByRole('button', { name: /扮演秋雾/ })).toBeVisible();
 
   await page.getByTestId('back-to-levels').click();
@@ -419,7 +419,7 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
     '已完成',
   );
   await expect(page.getByTestId('scenario-card-weekend-market')).toContainText(
-    '徐坤 S',
+    '江影 S',
   );
 
   const stored = await page.evaluate(() =>
@@ -501,7 +501,7 @@ test('clears local progress after confirmation', async ({ page }) => {
             scenarioId: 'weekend-market',
             scenarioTitle: '周五六点',
             playerGender: 'male',
-            playerName: '徐坤',
+            playerName: '江影',
             characterName: '秋雾',
             tier: 'S',
             endingTitle: '周末有约',

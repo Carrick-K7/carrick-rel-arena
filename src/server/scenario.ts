@@ -25,7 +25,7 @@ const OPPONENTS = {
   },
   male: {
     gender: 'male',
-    name: '徐坤',
+    name: '江影',
     age: 25,
     role: '程序员',
     experienceYears: 3,

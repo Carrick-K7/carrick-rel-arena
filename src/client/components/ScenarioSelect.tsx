@@ -299,7 +299,7 @@ export function ScenarioSelect({
                       {scenarioProgress?.completed ? '已完成' : '未完成'}
                     </b>
                     <span>
-                      徐坤{' '}
+                      江影{' '}
                       <TierMark
                         tier={scenarioProgress?.genders.male?.bestTier}
                       />

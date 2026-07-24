@@ -105,7 +105,7 @@ export function Briefing({
                   aria-pressed={playerGender === 'male'}
                   data-testid="choose-male"
                 >
-                  <strong>扮演徐坤</strong>
+                  <strong>扮演江影</strong>
                   <span>25 岁 · 程序员 · 职场第 3 年</span>
                 </button>
                 <button

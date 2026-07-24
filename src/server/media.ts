@@ -521,7 +521,7 @@ export function loadPrototypeReferences(
   const filenames = [
     'qiu-wu-guarded.jpg',
     'qiu-wu-soft.jpg',
-    'xu-kun-guarded.jpg',
+    'jiang-ying-guarded.jpg',
   ];
   try {
     return filenames.map((filename) => {
@@ -781,7 +781,7 @@ export function createImagePrompt(
 
 【不可更改的人物原型】
 图1和图2都是秋雾：25岁成年中国女性产品经理，棕色长卷发、圆润但成熟的五官、粉白与浅薄荷职场穿搭。必须锁定她的脸型、五官比例、发型、年龄感和服装。
-图3是徐坤：25岁成年中国男性程序员，短黑发、清爽克制的成年五官、浅色职场穿搭。必须锁定他的脸型、五官比例、发型、年龄感和服装。
+图3是江影：25岁成年中国男性程序员，短黑发、清爽克制的成年五官、浅色职场穿搭。必须锁定他的脸型、五官比例、发型、年龄感和服装。
 ${continuity}
 当前玩家是${session.briefing.player.name}，对方是${session.briefing.character.name}。两人可以同框；画面重心放在对方${session.briefing.character.name}的细微情绪反应。
 
@@ -841,7 +841,7 @@ export function createMemoryVideoPrompt(
 为《关系修炼》生成一支 ${durationSeconds} 秒、16:9 横向的单局回忆短片。它要压缩一整局关系对话，而不是只复现最后一句。
 
 【人物与关键帧】
-图1和图2锁定秋雾的同一张脸、棕色长卷发、成年感和粉白浅薄荷职场服装；图3锁定徐坤的同一张脸、短黑发、成年感和浅色职场服装。全片不得改变两人的脸、发型、体型、年龄或服装。
+图1和图2锁定秋雾的同一张脸、棕色长卷发、成年感和粉白浅薄荷职场服装；图3锁定江影的同一张脸、短黑发、成年感和浅色职场服装。全片不得改变两人的脸、发型、体型、年龄或服装。
 ${keyframeGuide}
 
 【叙事】

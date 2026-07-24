@@ -17,7 +17,7 @@ function run(overrides: Partial<ArtifactRun> = {}): ArtifactRun {
     scenarioId: 'weekend-market',
     scenarioTitle: '周五六点',
     playerGender: 'male',
-    playerName: '徐坤',
+    playerName: '江影',
     characterName: '秋雾',
     tier: 'S',
     endingTitle: '周末有约',

@@ -101,12 +101,12 @@ describe('typed scenario catalog', () => {
         role: '产品经理',
       });
       expect(male.player).toMatchObject({
-        name: '徐坤',
+        name: '江影',
         gender: 'male',
         role: '程序员',
       });
       expect(female.character).toMatchObject({
-        name: '徐坤',
+        name: '江影',
         gender: 'male',
         role: '程序员',
       });
@@ -260,7 +260,7 @@ describe('mock three-agent sessions', () => {
     ).session;
 
     expect(updated.state.round).toBe(1);
-    expect(updated.briefing.character.name).toBe('徐坤');
+    expect(updated.briefing.character.name).toBe('江影');
     expect(updated.transcript.at(-2)?.text).toContain('对不起');
     expect(second.state.round).toBe(0);
     expect(second.transcript).toHaveLength(1);

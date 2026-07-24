@@ -229,7 +229,7 @@ describe('MediaGenerationService', () => {
     const imagePrompt = createImagePrompt(next, beat, true);
 
     expect(imagePrompt).toContain('图1和图2都是秋雾');
-    expect(imagePrompt).toContain('图3是徐坤');
+    expect(imagePrompt).toContain('图3是江影');
     expect(imagePrompt).toContain('图4是本局上一视觉节拍');
     expect(imagePrompt).toContain(line);
     expect(imagePrompt).toContain('不要生成任何汉字');
