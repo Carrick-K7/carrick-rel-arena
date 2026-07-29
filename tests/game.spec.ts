@@ -309,6 +309,46 @@ test('selects modalities and requires an in-memory key for image generation', as
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 });
 
+test('does not show fake media progress when a refreshed page needs the key again', async ({
+  page,
+}) => {
+  let mediaCreationRequests = 0;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      /\/api\/media\/generations$/.test(request.url())
+    ) {
+      mediaCreationRequests += 1;
+    }
+  });
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'relationship-training:modalities:v1',
+      JSON.stringify({
+        outputs: ['text', 'image', 'video'],
+      }),
+    );
+  });
+
+  await page.goto('./');
+  await page.getByTestId('scenario-card-rain-check').click();
+  await page.getByTestId('enter-scenario').click();
+  await page.getByTestId('start-game').click();
+
+  await expect(page.getByTestId('media-generation-locked')).toBeVisible();
+  await expect(page.getByTestId('media-generation-progress')).toHaveCount(0);
+  expect(mediaCreationRequests).toBe(0);
+
+  await playUntilResult(page, genericStrongLine, 5);
+  await expect(page.getByTestId('media-generation-locked')).toBeVisible();
+  await expect(page.getByTestId('media-generation-progress')).toHaveCount(0);
+  expect(mediaCreationRequests).toBe(0);
+
+  await page.getByRole('button', { name: '重新解锁并生成' }).click();
+  await expect(page.getByTestId('modality-settings')).toBeVisible();
+  await expect(page.getByTestId('media-access-key')).toBeVisible();
+});
+
 test('uses per-turn images and creates one whole-session memory film', async ({
   page,
 }) => {

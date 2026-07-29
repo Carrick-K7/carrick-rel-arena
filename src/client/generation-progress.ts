@@ -10,7 +10,7 @@ export interface EstimatedGenerationProgress {
 }
 
 const EXPECTED_DURATION_MS: Record<MediaKind, number> = {
-  image: 75_000,
+  image: 50_000,
   video: 270_000,
 };
 
@@ -40,7 +40,7 @@ export function estimateGenerationProgress(
   if (!generation || generation.status === 'queued') {
     return {
       percent: Math.min(8, 3 + Math.floor(elapsed / 4)),
-      stage: '等待生成资源',
+      stage: generation ? '等待生成资源' : '正在提交生成任务',
       elapsedSeconds: elapsed,
     };
   }

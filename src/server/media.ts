@@ -108,7 +108,8 @@ export function readMediaConfig(): MediaConfig {
     imageModel:
       cleanText(process.env.ARK_IMAGE_MODEL) ??
       'doubao-seedream-5-0-260128',
-    imageSize: cleanText(process.env.ARK_IMAGE_SIZE) ?? '2K',
+    imageSize:
+      cleanText(process.env.ARK_REALTIME_IMAGE_SIZE) ?? '1K',
     imageTimeoutMs: readInt(
       process.env.ARK_IMAGE_TIMEOUT_MS,
       180_000,
@@ -306,6 +307,9 @@ export class MediaGenerationService {
     const startedAt = Date.now();
     record.status = 'running';
     record.updatedAt = new Date().toISOString();
+    console.info(
+      `[media:${record.provider}:${record.kind}] started generation=${record.id} model=${record.model} references=${record.references.length}`,
+    );
     try {
       const result =
         record.kind === 'image'
@@ -317,10 +321,15 @@ export class MediaGenerationService {
               record.prompt,
               record.references,
             );
+      const upstreamCompletedAt = Date.now();
+      console.info(
+        `[media:${record.provider}:${record.kind}] upstream completed generation=${record.id} in ${upstreamCompletedAt - startedAt}ms`,
+      );
       if (
         record.provider === 'ark' &&
         this.config.archiveDir
       ) {
+        const archiveStartedAt = Date.now();
         try {
           result.url = await persistMediaAsset({
             sourceUrl: result.url,
@@ -329,6 +338,9 @@ export class MediaGenerationService {
             archiveDir: this.config.archiveDir,
             publicBaseUrl: this.config.publicBaseUrl,
           });
+          console.info(
+            `[media:archive:${record.kind}] saved generation=${record.id} in ${Date.now() - archiveStartedAt}ms`,
+          );
         } catch (archiveError) {
           const archiveMessage =
             archiveError instanceof Error
@@ -344,13 +356,13 @@ export class MediaGenerationService {
       record.usageTokens = result.usageTokens;
       record.error = null;
       console.info(
-        `[media:${record.provider}:${record.kind}] succeeded in ${Date.now() - startedAt}ms`,
+        `[media:${record.provider}:${record.kind}] succeeded generation=${record.id} in ${Date.now() - startedAt}ms`,
       );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '媒体生成失败';
       console.error(
-        `[media:${record.provider}:${record.kind}] failed in ${Date.now() - startedAt}ms: ${message.replaceAll(/\s+/g, ' ')}`,
+        `[media:${record.provider}:${record.kind}] failed generation=${record.id} in ${Date.now() - startedAt}ms: ${message.replaceAll(/\s+/g, ' ')}`,
       );
       record.status = 'failed';
       record.error = '生成没有完成，请稍后重试。';

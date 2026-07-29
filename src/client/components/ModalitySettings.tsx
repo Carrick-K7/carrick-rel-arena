@@ -47,12 +47,19 @@ export function ModalitySettings({
       setUnlocking(false);
       return;
     }
+    if (!mediaUnlocked) {
+      if (hasOutput(preferences, 'video')) {
+        setRequestedMedia('video');
+      } else if (hasOutput(preferences, 'image')) {
+        setRequestedMedia('image');
+      }
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, open]);
+  }, [mediaUnlocked, onClose, open, preferences]);
 
   if (!open) return null;
 
@@ -60,8 +67,7 @@ export function ModalitySettings({
     setUnlockError(null);
     if (
       (mode === 'image' || mode === 'video') &&
-      !mediaUnlocked &&
-      !hasOutput(preferences, mode)
+      !mediaUnlocked
     ) {
       setRequestedMedia(mode);
       return;

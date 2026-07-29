@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameAgents } from './agents.js';
 import {
   createImagePrompt,
@@ -10,6 +10,7 @@ import {
   MediaError,
   MediaGenerationService,
   persistMediaAsset,
+  readMediaConfig,
   type MediaConfig,
 } from './media.js';
 import { MockAiProvider } from './providers/mock.js';
@@ -46,7 +47,21 @@ function createService() {
   return { service, session, sessions };
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('MediaGenerationService', () => {
+  it('uses a 1K real-time preview unless the dedicated setting overrides it', () => {
+    vi.stubEnv('MEDIA_PROVIDER', 'disabled');
+    vi.stubEnv('ARK_REALTIME_IMAGE_SIZE', '');
+    vi.stubEnv('ARK_IMAGE_SIZE', '2K');
+    expect(readMediaConfig().imageSize).toBe('1K');
+
+    vi.stubEnv('ARK_REALTIME_IMAGE_SIZE', '1536x1920');
+    expect(readMediaConfig().imageSize).toBe('1536x1920');
+  });
+
   it('copies provider media into a stable release-independent path', async () => {
     const archiveDir = mkdtempSync(
       path.join(tmpdir(), 'relationship-media-'),

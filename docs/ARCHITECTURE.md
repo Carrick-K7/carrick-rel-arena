@@ -240,7 +240,7 @@ Zod Schema 同时承担 TypeScript 类型来源、API 运行时校验和 OpenAI 
 
 用量日志采用 JSONL，只包含 UUID、Provider、模型、Agent、Token、缓存、延迟、重试、成功状态和成本估算，不包含 Prompt、台词或完整转录。默认写入 `var/usage-events.jsonl`；告警独立写入 `var/usage-alerts.jsonl`。服务启动时恢复最近 5,000 条技术事件和最近 50 条告警，使当日统计可跨进程重启。真实供应商返回的 Token 标记为 `provider_reported`，Mock 采用字符数近似并标记为 `estimated`。
 
-浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份；使用 `relationship-training:modalities:v1` 保存输入/输出模态；使用 `relationship-training:artifacts:v1` 保存已完成章节的匿名制品索引。该索引只包含关卡、身份、评级、完成时间、回合标签和稳定媒体 URL，不包含媒体访问密钥、会话 ID、对话正文、玩家输入或关系数值。
+浏览器使用 `relationship-training:progress:v1` 保存普通游戏进度：完成状态、分身份次数/最高分/最佳评级/已见结局、最近游玩时间和偏好身份；使用 `relationship-training:modalities:v1` 保存输入/输出模态；使用 `relationship-training:artifacts:v1` 保存已完成章节的匿名制品索引。该索引只包含关卡、身份、评级、完成时间、回合标签和稳定媒体 URL，不包含媒体访问密钥、会话 ID、对话正文、玩家输入或关系数值。媒体偏好恢复但内存密钥缺失时，客户端进入“需要重新解锁”状态，不创建本地假任务，也不显示预计生成进度。
 
 ## 8. 模型与成本可行性
 
@@ -284,7 +284,7 @@ MiMo TTS 的 `audio` 对象没有独立语速参数，人物语速通过自然�
 
 玩家触发的动态图像使用 Seedream，结算回忆视频使用 Seedance。`ARK_API_KEY` 只存在服务端；页面输入的 `MEDIA_ACCESS_KEY` 只承担产品门禁，不能替代供应商凭证。服务端为开场和每轮回复签发 `VisualBeat`，媒体接口只接受 `sessionId + beatId + kind`，拒绝客户端自定义 Prompt。图像允许引用该会话的任意有效节拍；视频只允许在结算后由最后一个节拍触发。相同会话、节拍和媒体类型幂等，媒体任务状态在进程内保存并随 TTL 过期。
 
-每张图片固定传入秋雾两张状态原型和江影原型；存在上一张成功图片时一并作为连续性参考。图片 Prompt 使用本轮对话、表演动作、事件和关系状态理解情绪，同时明确禁止模型渲染文字；页面用真实对话 DOM 覆盖位图，避免乱码。结算视频选取开场、评判关键轮次和最后一轮的成功图片，连同人物原型作为最多九张 Seedance 参考图。
+每张图片固定传入秋雾两张状态原型和江影原型；存在上一张成功图片时一并作为连续性参考。逐轮图片通过 `ARK_REALTIME_IMAGE_SIZE` 配置，默认使用 1K 预览规格。图片 Prompt 使用本轮对话、表演动作、事件和关系状态理解情绪，同时明确禁止模型渲染文字；页面用真实对话 DOM 覆盖位图，避免乱码。结算视频选取开场、评判关键轮次和最后一轮的成功图片，连同人物原型作为最多九张 Seedance 参考图。
 
 默认视频规格是 480p、16:9、15 秒、无生成音频和水印。生成任务采用异步创建与轮询，文字对话不等待媒体结果。媒体模型会临时接收生成所必需的对话上下文。Ark 成功结果会下载到 `MEDIA_ARCHIVE_DIR`（生产默认为 `/var/lib/carrick/relationship-arena/media`），因此制品跨原子发布与进程重启保留；Prompt 和对话正文仍不进入长期存储。
 

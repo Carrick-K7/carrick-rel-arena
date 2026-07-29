@@ -16,6 +16,7 @@ import {
 interface ResultScreenProps {
   session: PublicSession;
   outputModes: OutputMode[];
+  mediaUnlocked: boolean;
   visualFrames: Array<{
     beat: PublicSession['visualBeats'][number];
     generation: MediaGeneration | null;
@@ -23,25 +24,32 @@ interface ResultScreenProps {
   memoryVideoGeneration: MediaGeneration | null;
   replaying: boolean;
   onReplay: () => void;
+  onOpenSettings: () => void;
   onBackToLevels: () => void;
 }
 
 export function ResultScreen({
   session,
   outputModes,
+  mediaUnlocked,
   visualFrames,
   memoryVideoGeneration,
   replaying,
   onReplay,
+  onOpenSettings,
   onBackToLevels,
 }: ResultScreenProps) {
   const [copied, setCopied] = useState(false);
   const verdict = session.verdict;
   if (!verdict) return null;
   const finalProgress = relationshipProgress(session.state.metrics);
-  const imageEnabled =
+  const imageSelected =
     outputModes.includes('image') || outputModes.includes('video');
-  const videoEnabled = outputModes.includes('video');
+  const videoSelected = outputModes.includes('video');
+  const mediaNeedsUnlock =
+    (imageSelected || videoSelected) && !mediaUnlocked;
+  const imageEnabled = imageSelected && mediaUnlocked;
+  const videoEnabled = videoSelected && mediaUnlocked;
 
   async function copyResult() {
     await navigator.clipboard.writeText(verdict!.shareText);
@@ -156,6 +164,23 @@ export function ResultScreen({
               {videoEnabled ? ' · 1 支回忆短片' : ''}
             </p>
           </div>
+
+          {mediaNeedsUnlock && (
+            <section
+              className="result-media-locked"
+              data-testid="media-generation-locked"
+            >
+              <div>
+                <strong>这一页还没有开始生成影像</strong>
+                <p>
+                  媒体密钥不会保存在浏览器中，刷新后需要重新解锁。
+                </p>
+              </div>
+              <button type="button" onClick={onOpenSettings}>
+                重新解锁并生成
+              </button>
+            </section>
+          )}
 
           <div className="session-archive__timeline">
             {visualFrames.map(({ beat, generation }) => (

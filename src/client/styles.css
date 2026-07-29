@@ -2830,6 +2830,15 @@ figure {
     flex-direction: column;
   }
 
+  .result-media-locked {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .result-media-locked button {
+    width: 100%;
+  }
+
   .level-footer {
     align-items: flex-start;
     flex-direction: column;
@@ -4216,6 +4225,44 @@ figure {
   font-size: 12px;
 }
 
+.result-media-locked {
+  display: flex;
+  margin-top: 18px;
+  padding: 15px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft-teal);
+}
+
+.result-media-locked strong {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.result-media-locked p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.result-media-locked button {
+  min-height: 38px;
+  padding: 0 15px;
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--accent-dark);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .session-archive__timeline {
   display: grid;
   overflow-x: auto;
@@ -4601,6 +4648,46 @@ figure {
   background: #77e5dc;
 }
 
+.opponent-stage__media-locked {
+  position: absolute;
+  z-index: 4;
+  right: 12px;
+  bottom: 14px;
+  left: 12px;
+  display: flex;
+  min-height: 62px;
+  padding: 10px 10px 10px 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(24, 53, 50, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.opponent-stage__media-locked div {
+  min-width: 0;
+}
+
+.opponent-stage__media-locked strong,
+.opponent-stage__media-locked span {
+  display: block;
+}
+
+.opponent-stage__media-locked strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.opponent-stage__media-locked span {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .opponent-stage__media-fallback {
   position: absolute;
   z-index: 4;
@@ -4625,6 +4712,7 @@ figure {
   line-height: 1.45;
 }
 
+.opponent-stage__media-locked button,
 .opponent-stage__media-fallback button {
   min-height: 30px;
   padding: 0 10px;

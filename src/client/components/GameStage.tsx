@@ -28,6 +28,7 @@ interface GameStageProps {
   busy: boolean;
   error: string | null;
   outputModes: OutputMode[];
+  mediaUnlocked: boolean;
   visualFrames: VisualFrame[];
   recording: boolean;
   speechInputSupported: boolean;
@@ -48,6 +49,7 @@ export function GameStage({
   busy,
   error,
   outputModes,
+  mediaUnlocked,
   visualFrames,
   recording,
   speechInputSupported,
@@ -337,8 +339,10 @@ export function GameStage({
         <OpponentVisual
           session={session}
           outputModes={outputModes}
+          mediaUnlocked={mediaUnlocked}
           visualFrames={visualFrames}
           onRetryImage={onRetryImage}
+          onOpenSettings={onOpenSettings}
         />
       </section>
     </main>
@@ -348,16 +352,21 @@ export function GameStage({
 function OpponentVisual({
   session,
   outputModes,
+  mediaUnlocked,
   visualFrames,
   onRetryImage,
+  onOpenSettings,
 }: {
   session: PublicSession;
   outputModes: OutputMode[];
+  mediaUnlocked: boolean;
   visualFrames: VisualFrame[];
   onRetryImage: (beatId: string) => void;
+  onOpenSettings: () => void;
 }) {
   const mediaRequested =
     outputModes.includes('image') || outputModes.includes('video');
+  const mediaReady = mediaRequested && mediaUnlocked;
   const latestFrame = visualFrames.at(-1) ?? null;
   const [selectedBeatId, setSelectedBeatId] = useState(
     latestFrame?.beat.id ?? null,
@@ -402,6 +411,22 @@ function OpponentVisual({
               character={session.briefing.character}
             />
             {mediaRequested &&
+              !mediaUnlocked &&
+              selectedBeat && (
+                <div
+                  className="opponent-stage__media-locked"
+                  data-testid="media-generation-locked"
+                >
+                  <div>
+                    <strong>影像生成尚未解锁</strong>
+                    <span>刷新后需要重新输入媒体密钥。</span>
+                  </div>
+                  <button type="button" onClick={onOpenSettings}>
+                    重新解锁
+                  </button>
+                </div>
+              )}
+            {mediaReady &&
               selectedBeat &&
               (!generation ||
                 generation.status === 'queued' ||
@@ -417,7 +442,7 @@ function OpponentVisual({
                   />
                 </div>
               )}
-            {mediaRequested &&
+            {mediaReady &&
               selectedBeat &&
               generation?.status === 'failed' && (
                 <div
@@ -436,7 +461,7 @@ function OpponentVisual({
           </div>
         )}
       </div>
-      {mediaRequested && visualFrames.length > 0 && (
+      {mediaReady && visualFrames.length > 0 && (
         <nav className="visual-timeline" aria-label="对话形象轨迹">
           <div className="visual-timeline__heading">
             <span>形象轨迹</span>

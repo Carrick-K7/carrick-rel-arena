@@ -36,7 +36,7 @@ describe('estimated media generation progress', () => {
     const middle = estimateGenerationProgress(
       'image',
       generation('running'),
-      Date.parse(createdAt) + 75_000,
+      Date.parse(createdAt) + 50_000,
     );
     const longRunning = estimateGenerationProgress(
       'image',
@@ -60,6 +60,19 @@ describe('estimated media generation progress', () => {
     ).toMatchObject({
       percent: 100,
       stage: '画面已经生成',
+    });
+  });
+
+  it('describes a not-yet-created generation as submission rather than an upstream queue', () => {
+    expect(
+      estimateGenerationProgress(
+        'image',
+        null,
+        Date.parse(createdAt) + 2_000,
+        Date.parse(createdAt),
+      ),
+    ).toMatchObject({
+      stage: '正在提交生成任务',
     });
   });
 

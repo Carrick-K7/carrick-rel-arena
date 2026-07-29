@@ -984,10 +984,12 @@ export function App() {
       <ResultScreen
         session={session}
         outputModes={modalities.outputs}
+        mediaUnlocked={mediaUnlocked}
         visualFrames={visualFrames}
         memoryVideoGeneration={memoryVideo}
         replaying={busy}
         onReplay={beginGame}
+        onOpenSettings={() => setSettingsOpen(true)}
         onBackToLevels={returnToLevels}
       />
     );
@@ -1000,6 +1002,7 @@ export function App() {
         busy={busy}
         error={error}
         outputModes={modalities.outputs}
+        mediaUnlocked={mediaUnlocked}
         visualFrames={visualFrames}
         recording={recording}
         speechInputSupported={speechInputSupported}
