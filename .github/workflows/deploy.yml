@@ -94,6 +94,9 @@ jobs:
           chmod 0600 ~/.ssh/deploy_key ~/.ssh/known_hosts
 
           ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "deploy $REVISION" < release.tar.gz
 
