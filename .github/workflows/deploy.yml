@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: relationship-arena-production
+  group: relationship-arena-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
