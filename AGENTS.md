@@ -37,6 +37,8 @@ The full verification includes type checking, unit tests, production build, and 
 - Application changes must not overwrite Caddy or systemd configuration.
 - Pushes to `main` run `.github/workflows/deploy.yml`: verify, package, deploy
   an atomic release, restart the existing unit, and smoke-test production.
+- GitHub Actions packages the compiled server, client, and production
+  dependencies. The production host only validates and activates the artifact.
 - After every pushed production change, the responsible AI must follow the
   exact commit's workflow to completion and smoke-test only the changed public
   path before reporting it live.
