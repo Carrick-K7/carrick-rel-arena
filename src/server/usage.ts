@@ -1,5 +1,5 @@
 import {
-  appendFile,
+  appendFileSync,
   mkdirSync,
   readFileSync,
 } from 'node:fs';
@@ -8,6 +8,7 @@ import type { SessionUsage } from '../shared/contracts.js';
 import type {
   ModelUsage,
   ProviderKind,
+  StructuredCompletionRequest,
 } from './providers/types.js';
 
 interface Pricing {
@@ -24,6 +25,7 @@ export interface UsageConfig {
   adminToken: string | null;
   sessionCostLimitUsd: number;
   dailyCostLimitUsd: number;
+  dailyTtsCharacterLimit: number;
   sessionTokenLimit: number;
   errorRateLimit: number;
   errorRateMinimumCalls: number;
@@ -86,6 +88,10 @@ export function readUsageConfig(): UsageConfig {
       process.env.USAGE_ALERT_DAILY_USD,
       5,
     ),
+    dailyTtsCharacterLimit: readNonNegativeInt(
+      process.env.USAGE_DAILY_TTS_CHARACTERS,
+      30_000,
+    ),
     sessionTokenLimit: readNonNegativeInt(
       process.env.USAGE_ALERT_SESSION_TOKENS,
       120_000,
@@ -113,15 +119,14 @@ export class UsageTracker {
   private readonly events: UsageEvent[] = [];
   private readonly alerts: UsageAlert[] = [];
   private readonly emittedAlertKeys = new Set<string>();
+  private reservedModelCostUsd = 0;
+  private reservedTtsCharacters = 0;
 
   constructor(private readonly config: UsageConfig) {
     prepareParent(config.logPath);
     prepareParent(config.alertLogPath);
-    this.events.push(
-      ...readJsonLines(config.logPath)
-        .filter(isUsageEvent)
-        .slice(-config.maxMemoryEvents),
-    );
+    this.events.push(...readJsonLines(config.logPath).filter(isUsageEvent));
+    this.trimEvents();
     this.alerts.push(
       ...readJsonLines(config.alertLogPath)
         .filter(isUsageAlert)
@@ -145,6 +150,84 @@ export class UsageTracker {
 
   get adminToken(): string | null {
     return this.config.adminToken;
+  }
+
+  reserveModelCall(
+    provider: ProviderKind,
+    model: string,
+    request: StructuredCompletionRequest<unknown>,
+  ): () => void {
+    if (provider === 'mock' || this.config.dailyCostLimitUsd <= 0) {
+      return () => undefined;
+    }
+    const todayModelEvents = this.todayEvents().filter(
+      (event): event is TrackedModelUsage => event.kind === 'model',
+    );
+    const spent = knownCost(todayModelEvents);
+    if (spent === null) {
+      throw new UsageBudgetError(
+        'MODEL_COST_UNKNOWN',
+        '当前模型价格无法核算，付费调用已暂停。',
+      );
+    }
+    const reservation = estimateRequestMaximumCostUsd(
+      provider,
+      model,
+      request,
+    );
+    if (reservation === null) {
+      throw new UsageBudgetError(
+        'MODEL_COST_UNKNOWN',
+        '当前模型价格无法核算，付费调用已暂停。',
+      );
+    }
+    if (
+      spent + this.reservedModelCostUsd + reservation >
+      this.config.dailyCostLimitUsd
+    ) {
+      throw new UsageBudgetError(
+        'DAILY_BUDGET_EXHAUSTED',
+        '今日模型预算已用完，服务将在下一个用量日恢复。',
+      );
+    }
+    this.reservedModelCostUsd += reservation;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.reservedModelCostUsd = Math.max(
+        0,
+        this.reservedModelCostUsd - reservation,
+      );
+    };
+  }
+
+  reserveTts(characters: number, paid: boolean): () => void {
+    if (!paid || this.config.dailyTtsCharacterLimit <= 0) {
+      return () => undefined;
+    }
+    const used = this.todayEvents()
+      .filter((event): event is TtsUsage => event.kind === 'tts')
+      .reduce((total, event) => total + event.characters, 0);
+    if (
+      used + this.reservedTtsCharacters + characters >
+      this.config.dailyTtsCharacterLimit
+    ) {
+      throw new UsageBudgetError(
+        'DAILY_TTS_BUDGET_EXHAUSTED',
+        '今日语音预算已用完，服务将在下一个用量日恢复。',
+      );
+    }
+    this.reservedTtsCharacters += characters;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.reservedTtsCharacters = Math.max(
+        0,
+        this.reservedTtsCharacters - characters,
+      );
+    };
   }
 
   recordModel(usage: ModelUsage): void {
@@ -266,6 +349,7 @@ export class UsageTracker {
       thresholds: {
         sessionCostLimitUsd: this.config.sessionCostLimitUsd,
         dailyCostLimitUsd: this.config.dailyCostLimitUsd,
+        dailyTtsCharacterLimit: this.config.dailyTtsCharacterLimit,
         sessionTokenLimit: this.config.sessionTokenLimit,
         errorRateLimit: this.config.errorRateLimit,
         errorRateMinimumCalls: this.config.errorRateMinimumCalls,
@@ -302,13 +386,40 @@ export class UsageTracker {
 
   private pushEvent(event: UsageEvent) {
     this.events.push(event);
-    if (this.events.length > this.config.maxMemoryEvents) {
-      this.events.splice(
-        0,
-        this.events.length - this.config.maxMemoryEvents,
-      );
-    }
+    this.trimEvents();
     appendJsonLine(this.config.logPath, event);
+  }
+
+  private todayEvents(): UsageEvent[] {
+    const today = formatUsageDateKey(new Date(), this.config.timeZone);
+    return this.events.filter(
+      (event) => formatUsageDateKey(
+        new Date(event.occurredAt),
+        this.config.timeZone,
+      ) === today,
+    );
+  }
+
+  private trimEvents(): void {
+    const today = formatUsageDateKey(new Date(), this.config.timeZone);
+    const current: UsageEvent[] = [];
+    const older: UsageEvent[] = [];
+    for (const event of this.events) {
+      if (
+        formatUsageDateKey(new Date(event.occurredAt), this.config.timeZone) ===
+        today
+      ) {
+        current.push(event);
+      } else {
+        older.push(event);
+      }
+    }
+    this.events.splice(
+      0,
+      this.events.length,
+      ...older.slice(-this.config.maxMemoryEvents),
+      ...current,
+    );
   }
 
   private evaluateAlerts(event: TrackedModelUsage) {
@@ -441,6 +552,45 @@ export class UsageTracker {
       });
     }
   }
+}
+
+export class UsageBudgetError extends Error {
+  readonly status = 503;
+
+  constructor(
+    public readonly code:
+      | 'DAILY_BUDGET_EXHAUSTED'
+      | 'DAILY_TTS_BUDGET_EXHAUSTED'
+      | 'MODEL_COST_UNKNOWN',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'UsageBudgetError';
+  }
+}
+
+export function estimateRequestMaximumCostUsd(
+  provider: ProviderKind,
+  model: string,
+  request: Pick<
+    StructuredCompletionRequest<unknown>,
+    'system' | 'input' | 'maxOutputTokens'
+  >,
+): number | null {
+  if (provider === 'mock') return 0;
+  const pricing = resolvePricing(provider, model);
+  if (!pricing) return null;
+  const promptBytes = Buffer.byteLength(
+    `${request.system}\n${JSON.stringify(request.input)}`,
+    'utf8',
+  );
+  const inputCeiling =
+    promptBytes * 4 * Math.max(1, pricing.cacheWriteMultiplier);
+  const oneAttempt =
+    (inputCeiling * pricing.inputUsdPerMillion +
+      request.maxOutputTokens * pricing.outputUsdPerMillion) /
+    1_000_000;
+  return roundMoney(oneAttempt * 2);
 }
 
 export function estimateModelCostUsd(
@@ -593,9 +743,14 @@ function appendJsonLine(
   value: object,
 ): void {
   if (!filePath) return;
-  appendFile(filePath, `${JSON.stringify(value)}\n`, (error) => {
-    if (error) console.error('[usage-log]', error.message);
-  });
+  try {
+    appendFileSync(filePath, `${JSON.stringify(value)}\n`, 'utf8');
+  } catch (error) {
+    console.error(
+      '[usage-log]',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 function prepareParent(filePath: string | null): void {

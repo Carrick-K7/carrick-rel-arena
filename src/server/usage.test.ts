@@ -12,7 +12,9 @@ import { RemoteAiProvider } from './providers/remote.js';
 import type { ModelUsage } from './providers/types.js';
 import {
   estimateModelCostUsd,
+  estimateRequestMaximumCostUsd,
   formatUsageDateKey,
+  UsageBudgetError,
   UsageTracker,
   type UsageConfig,
 } from './usage.js';
@@ -24,6 +26,7 @@ const quietConfig: UsageConfig = {
   adminToken: null,
   sessionCostLimitUsd: 100,
   dailyCostLimitUsd: 100,
+  dailyTtsCharacterLimit: 100_000,
   sessionTokenLimit: 1_000_000,
   errorRateLimit: 1,
   errorRateMinimumCalls: 100,
@@ -111,6 +114,46 @@ describe('usage accounting', () => {
         'Asia/Shanghai',
       ),
     ).toBe('2026-07-18');
+  });
+
+  it('reserves a conservative model ceiling before a paid call', () => {
+    const ceiling = estimateRequestMaximumCostUsd(
+      'openai',
+      'gpt-5.4-mini',
+      {
+        system: 'Return JSON.',
+        input: { line: '测试' },
+        maxOutputTokens: 500,
+      },
+    );
+    expect(ceiling).toBeTypeOf('number');
+    expect(ceiling).toBeGreaterThan(0);
+  });
+
+  it('stops TTS before the daily hard character boundary is crossed', () => {
+    const tracker = new UsageTracker({
+      ...quietConfig,
+      dailyTtsCharacterLimit: 5,
+    });
+    tracker.recordTts({
+      provider: 'openai',
+      model: 'test',
+      sessionId: SESSION_ID,
+      success: true,
+      latencyMs: 1,
+      characters: 5,
+      errorCode: null,
+    });
+    expect(() => tracker.reserveTts(1, true)).toThrow(UsageBudgetError);
+  });
+
+  it('stops a paid model call before its reservation crosses the daily limit', () => {
+    const tracker = new UsageTracker({
+      ...quietConfig,
+      dailyCostLimitUsd: 0.000001,
+    });
+    expect(() => tracker.reserveModelCall('openai', 'gpt-5.4-mini', request()))
+      .toThrow(UsageBudgetError);
   });
 });
 

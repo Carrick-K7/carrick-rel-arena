@@ -27,6 +27,11 @@ export class GameAgents {
     private readonly provider: AiProvider,
     private readonly recordUsage: (usage: ModelUsage) => void = () =>
       undefined,
+    private readonly reserveUsage: (
+      provider: AiProvider['kind'],
+      model: string,
+      request: StructuredCompletionRequest<unknown>,
+    ) => () => void = () => () => undefined,
   ) {}
 
   get providerKind() {
@@ -96,6 +101,11 @@ export class GameAgents {
   private async generate<T>(
     request: StructuredCompletionRequest<T>,
   ): Promise<T> {
+    const release = this.reserveUsage(
+      this.provider.kind,
+      this.provider.model,
+      request,
+    );
     try {
       const result = await this.provider.generate(request);
       this.recordUsage(result.usage);
@@ -105,6 +115,8 @@ export class GameAgents {
         this.recordUsage(error.usage);
       }
       throw error;
+    } finally {
+      release();
     }
   }
 }

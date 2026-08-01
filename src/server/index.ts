@@ -40,6 +40,7 @@ import {
 } from './tts.js';
 import {
   readUsageConfig,
+  UsageBudgetError,
   UsageTracker,
 } from './usage.js';
 
@@ -56,6 +57,8 @@ const usageTracker = new UsageTracker(readUsageConfig());
 const agents = new GameAgents(
   provider,
   (usage) => usageTracker.recordModel(usage),
+  (providerKind, model, request) =>
+    usageTracker.reserveModelCall(providerKind, model, request),
 );
 const ttlMinutes = parsePositiveInt(process.env.SESSION_TTL_MINUTES, 120);
 const sessions = new GameSessionService(
@@ -117,6 +120,7 @@ app.use((_request, response, next) => {
   next();
 });
 
+const sessionLimit = createRateLimit(10, 60_000);
 const turnLimit = createRateLimit(30, 60_000);
 const speechLimit = createRateLimit(60, 60_000);
 const mediaAccessLimit = createRateLimit(12, 60_000);
@@ -171,7 +175,7 @@ app.get('/api/scenarios/:scenarioId', (request, response) => {
   });
 });
 
-app.post('/api/sessions', turnLimit, (request, response) => {
+app.post('/api/sessions', sessionLimit, (request, response) => {
   const input = CreateSessionInputSchema.parse(request.body ?? {});
   response
     .status(201)
@@ -208,6 +212,10 @@ const SpeechInputSchema = z.strictObject({
 
 app.post('/api/speech', speechLimit, async (request, response) => {
   const input = SpeechInputSchema.parse(request.body);
+  const releaseBudget = usageTracker.reserveTts(
+    input.text.length,
+    Boolean(ttsConfig.apiKey),
+  );
   const startedAt = performance.now();
   let speech: Awaited<ReturnType<typeof synthesizeSpeech>>;
   try {
@@ -243,6 +251,8 @@ app.post('/api/speech', speechLimit, async (request, response) => {
       errorCode: 'TTS_FAILED',
     });
     throw error;
+  } finally {
+    releaseBudget();
   }
   if (!speech) {
     response.status(204).end();
@@ -402,6 +412,16 @@ const errorHandler: ErrorRequestHandler = (
   }
 
   if (error instanceof MediaError) {
+    response.status(error.status).json({
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof UsageBudgetError) {
     response.status(error.status).json({
       error: {
         code: error.code,
