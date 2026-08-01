@@ -40,6 +40,11 @@ import { ModalitySettings } from './components/ModalitySettings.js';
 import { ResultScreen } from './components/ResultScreen.js';
 import { ScenarioSelect } from './components/ScenarioSelect.js';
 import {
+  dialogueDocumentTitle,
+  documentTitle,
+  memoryDocumentTitle,
+} from './document-title.js';
+import {
   hasOutput,
   loadModalities,
   saveModalities,
@@ -194,24 +199,24 @@ export function App() {
 
   useEffect(() => {
     if (screen === 'briefing' && briefing) {
-      document.title = `${briefing.title} · 关系修炼`;
+      document.title = documentTitle(briefing.title);
       return;
     }
     if ((screen === 'playing' || screen === 'result') && session) {
       document.title =
         screen === 'result'
-          ? `${session.verdict?.title ?? '结算'} · 关系修炼`
-          : `${session.briefing.title} · 对话`;
+          ? documentTitle(session.verdict?.title ?? '结算')
+          : dialogueDocumentTitle(session.briefing.character.name);
       return;
     }
     if (screen === 'archive' && archiveScenarioId && scenarios) {
       const scenario = scenarios.find(
         (candidate) => candidate.id === archiveScenarioId,
       );
-      document.title = `${scenario?.title ?? '章节'}回忆 · 关系修炼`;
+      document.title = memoryDocumentTitle(scenario?.number);
       return;
     }
-    document.title = '关系修炼 · 八段关系对话挑战';
+    document.title = documentTitle();
   }, [archiveScenarioId, briefing, scenarios, screen, session]);
 
   useEffect(() => {
