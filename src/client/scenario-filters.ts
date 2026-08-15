@@ -1,6 +1,5 @@
 import type {
   Difficulty,
-  ScenarioId,
   ScenarioSummary,
   ScenarioType,
 } from '../shared/contracts.js';
@@ -38,29 +37,4 @@ export function filterScenarios(
       filters.difficulties.includes(scenario.difficulty);
     return matchesCompletion && matchesType && matchesDifficulty;
   });
-}
-
-export function defaultScenarioId(
-  scenarios: ScenarioSummary[],
-  progress: LocalProgress,
-): ScenarioId {
-  const recent = Object.entries(progress.scenarios)
-    .filter((entry): entry is [ScenarioId, NonNullable<typeof entry[1]>] =>
-      Boolean(entry[1]?.lastPlayedAt),
-    )
-    .sort(
-      (left, right) =>
-        Date.parse(right[1].lastPlayedAt) - Date.parse(left[1].lastPlayedAt),
-    )[0]?.[0];
-  return recent && scenarios.some((scenario) => scenario.id === recent)
-    ? recent
-    : scenarios[0].id;
-}
-
-export function reconcileSelectedScenario(
-  selected: ScenarioId,
-  visible: ScenarioSummary[],
-): ScenarioId | null {
-  if (visible.some((scenario) => scenario.id === selected)) return selected;
-  return visible[0]?.id ?? null;
 }

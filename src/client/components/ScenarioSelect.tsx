@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import type {
   Difficulty,
   EndingTier,
-  ScenarioBriefing,
   ScenarioId,
   ScenarioSummary,
   ScenarioType,
@@ -11,7 +10,6 @@ import type { LocalProgress } from '../progress.js';
 import {
   DEFAULT_SCENARIO_FILTERS,
   filterScenarios,
-  reconcileSelectedScenario,
   type CompletionFilter,
   type ScenarioFilters,
 } from '../scenario-filters.js';
@@ -20,14 +18,10 @@ import { BrandLogo } from './BrandLogo.js';
 interface ScenarioSelectProps {
   scenarios: ScenarioSummary[];
   progress: LocalProgress;
-  selectedScenarioId: ScenarioId;
-  selectedBriefing: ScenarioBriefing | null;
-  previewLoading: boolean;
   busy: boolean;
   error: string | null;
   artifactCounts: Partial<Record<ScenarioId, number>>;
-  onSelect: (scenarioId: ScenarioId) => void;
-  onEnter: () => void;
+  onEnterScenario: (scenarioId: ScenarioId) => void;
   onOpenArtifacts: (scenarioId: ScenarioId) => void;
   onOpenSettings: () => void;
   onClearProgress: () => void;
@@ -76,14 +70,10 @@ const advantages = [
 export function ScenarioSelect({
   scenarios,
   progress,
-  selectedScenarioId,
-  selectedBriefing,
-  previewLoading,
   busy,
   error,
   artifactCounts,
-  onSelect,
-  onEnter,
+  onEnterScenario,
   onOpenArtifacts,
   onOpenSettings,
   onClearProgress,
@@ -91,19 +81,10 @@ export function ScenarioSelect({
   const [filters, setFilters] = useState<ScenarioFilters>(
     DEFAULT_SCENARIO_FILTERS,
   );
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const visibleScenarios = useMemo(
     () => filterScenarios(scenarios, progress, filters),
     [filters, progress, scenarios],
   );
-
-  useEffect(() => {
-    const reconciled = reconcileSelectedScenario(
-      selectedScenarioId,
-      visibleScenarios,
-    );
-    if (reconciled && reconciled !== selectedScenarioId) onSelect(reconciled);
-  }, [onSelect, selectedScenarioId, visibleScenarios]);
 
   function confirmClear() {
     if (
@@ -166,40 +147,12 @@ export function ScenarioSelect({
       )}
 
       <section className="scenario-browser" aria-label="关卡选择">
-        <div className="scenario-browser__toolbar">
-          <div>
-            <span>场景目录</span>
-            <strong>{visibleScenarios.length} / {scenarios.length}</strong>
-          </div>
-          <button
-            type="button"
-            className={filtersOpen ? 'is-active' : ''}
-            onClick={() => setFiltersOpen((open) => !open)}
-            aria-expanded={filtersOpen}
-            aria-controls="scenario-filters"
-          >
-            <FilterIcon />
-            筛选
-          </button>
-        </div>
-
-        <aside
-          className={`scenario-filters ${filtersOpen ? 'is-open' : ''}`}
-          id="scenario-filters"
-          aria-label="筛选关卡"
-        >
-          <div className="scenario-filters__heading">
-            <span>筛选</span>
-            <strong>{visibleScenarios.length} 个场景</strong>
-          </div>
-          <FilterSection label="完成状态">
+        <div className="scenario-toolbar">
+          <div className="segmented" role="group" aria-label="完成状态">
             {completionFilters.map((item) => (
               <button
                 key={item.value}
                 type="button"
-                className={
-                  filters.completion === item.value ? 'is-active' : ''
-                }
                 aria-pressed={filters.completion === item.value}
                 onClick={() =>
                   setFilters((current) => ({
@@ -209,34 +162,45 @@ export function ScenarioSelect({
                 }
                 data-testid={`progress-filter-${item.value}`}
               >
-                <span>{item.label}</span>
-                <i aria-hidden="true" />
+                {item.label}
               </button>
             ))}
-          </FilterSection>
-          <FilterSection label="关系类型">
+          </div>
+          <div
+            className="scenario-toolbar__group"
+            role="group"
+            aria-label="关系类型"
+          >
             {typeFilters.map((item) => (
-              <ToggleFilter
+              <button
                 key={item.value}
-                label={item.label}
-                selected={filters.types.includes(item.value)}
-                onToggle={() =>
+                type="button"
+                className="chip"
+                aria-pressed={filters.types.includes(item.value)}
+                onClick={() =>
                   setFilters((current) => ({
                     ...current,
                     types: toggleValue(current.types, item.value),
                   }))
                 }
-                testId={`type-filter-${item.value}`}
-              />
+                data-testid={`type-filter-${item.value}`}
+              >
+                {item.label}
+              </button>
             ))}
-          </FilterSection>
-          <FilterSection label="对话强度">
+          </div>
+          <div
+            className="scenario-toolbar__group"
+            role="group"
+            aria-label="对话强度"
+          >
             {difficultyFilters.map((item) => (
-              <ToggleFilter
+              <button
                 key={item.value}
-                label={item.label}
-                selected={filters.difficulties.includes(item.value)}
-                onToggle={() =>
+                type="button"
+                className="chip"
+                aria-pressed={filters.difficulties.includes(item.value)}
+                onClick={() =>
                   setFilters((current) => ({
                     ...current,
                     difficulties: toggleValue(
@@ -245,55 +209,64 @@ export function ScenarioSelect({
                     ),
                   }))
                 }
-                testId={`difficulty-filter-${item.value}`}
-              />
+                data-testid={`difficulty-filter-${item.value}`}
+              >
+                {item.label}
+              </button>
             ))}
-          </FilterSection>
-          <button
-            className="clear-filters"
-            type="button"
-            disabled={!hasFilters}
-            onClick={() => setFilters(DEFAULT_SCENARIO_FILTERS)}
-          >
-            清除筛选
-          </button>
-        </aside>
+          </div>
+          <span className="scenario-toolbar__count">
+            {visibleScenarios.length} / {scenarios.length} 个场景
+          </span>
+          {hasFilters && (
+            <button
+              className="scenario-toolbar__clear"
+              type="button"
+              onClick={() => setFilters(DEFAULT_SCENARIO_FILTERS)}
+            >
+              清除筛选
+            </button>
+          )}
+        </div>
 
         <section
-          className="scenario-list"
+          className="scenario-grid"
           aria-label="关卡目录"
           data-testid="scenario-grid"
         >
           {visibleScenarios.map((scenario) => {
             const scenarioProgress = progress.scenarios[scenario.id];
-            const selected = selectedScenarioId === scenario.id;
+            const artifacts = artifactCounts[scenario.id] ?? 0;
             return (
-              <button
+              <article
                 key={scenario.id}
-                type="button"
                 className={[
                   'scenario-card',
+                  'panel',
                   `scenario-card--${scenario.type}`,
                   scenarioProgress?.completed ? 'is-completed' : '',
-                  selected ? 'is-selected' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                disabled={busy}
-                aria-pressed={selected}
-                onClick={() => onSelect(scenario.id)}
-                data-testid={`scenario-card-${scenario.id}`}
               >
-                <span className="scenario-card__number">
-                  {String(scenario.number).padStart(2, '0')}
-                </span>
-                <span className="scenario-card__copy">
+                <button
+                  type="button"
+                  className="scenario-card__main"
+                  disabled={busy}
+                  onClick={() => onEnterScenario(scenario.id)}
+                  data-testid={`scenario-card-${scenario.id}`}
+                >
+                  <span className="scenario-card__number" aria-hidden="true">
+                    {String(scenario.number).padStart(2, '0')}
+                  </span>
                   <span className="scenario-card__tags">
                     <i>{typeLabel(scenario.type)}</i>
                     <i>{scenario.difficulty}</i>
                     <i>{scenario.maxRounds} 轮</i>
                   </span>
-                  <strong>{scenario.title}</strong>
+                  <strong className="scenario-card__title">
+                    {scenario.title}
+                  </strong>
                   <span className="scenario-card__record">
                     <b>
                       {scenarioProgress?.completed ? '已完成' : '未完成'}
@@ -308,17 +281,22 @@ export function ScenarioSelect({
                       <TierMark
                         tier={scenarioProgress?.genders.female?.bestTier}
                       />
-                      {(artifactCounts[scenario.id] ?? 0) > 0 && (
-                        <>
-                          <i>·</i>
-                          回忆 {artifactCounts[scenario.id]}
-                        </>
-                      )}
                     </span>
                   </span>
-                </span>
-                <ChevronIcon />
-              </button>
+                </button>
+                {artifacts > 0 && (
+                  <button
+                    type="button"
+                    className="scenario-card__memories"
+                    onClick={() => onOpenArtifacts(scenario.id)}
+                    disabled={busy}
+                    data-testid="open-artifact-library"
+                  >
+                    查看回忆
+                    <span>{artifacts} 次</span>
+                  </button>
+                )}
+              </article>
             );
           })}
           {visibleScenarios.length === 0 && (
@@ -334,77 +312,6 @@ export function ScenarioSelect({
             </div>
           )}
         </section>
-
-        <aside
-          className="scenario-preview"
-          aria-live="polite"
-          data-testid="scenario-preview"
-        >
-          {previewLoading || !selectedBriefing ? (
-            <div className="scenario-preview__loading">
-              <span />
-              <span />
-              <span />
-            </div>
-          ) : (
-            <>
-              <div className="scenario-preview__meta">
-                <span>第 {selectedBriefing.number} 关</span>
-                <span>{typeLabel(selectedBriefing.type)}</span>
-                <span>{selectedBriefing.difficulty}</span>
-                <span>{selectedBriefing.maxRounds} 轮</span>
-              </div>
-              <h2>{selectedBriefing.title}</h2>
-              <div className="scenario-preview__facts">
-                <article>
-                  <span>时间与地点</span>
-                  <strong>{selectedBriefing.timeAndPlace}</strong>
-                </article>
-                <article>
-                  <span>事情发生之前</span>
-                  <p>{selectedBriefing.premise}</p>
-                </article>
-                <article className="scenario-preview__goal">
-                  <span>这一次要做到</span>
-                  <p>{selectedBriefing.goal}</p>
-                </article>
-              </div>
-              <div className="scenario-preview__opponent">
-                <span>当前伴侣</span>
-                <strong>{selectedBriefing.character.name}</strong>
-                <p>{selectedBriefing.character.personality}</p>
-              </div>
-              <div className="scenario-preview__actions">
-                {(artifactCounts[selectedBriefing.id] ?? 0) > 0 && (
-                  <button
-                    className="scenario-preview__memories"
-                    type="button"
-                    onClick={() =>
-                      onOpenArtifacts(selectedBriefing.id)
-                    }
-                    disabled={busy || previewLoading}
-                    data-testid="open-artifact-library"
-                  >
-                    查看回忆
-                    <span>
-                      {artifactCounts[selectedBriefing.id]} 次
-                    </span>
-                  </button>
-                )}
-                <button
-                  className="scenario-preview__enter"
-                  type="button"
-                  onClick={onEnter}
-                  disabled={busy || previewLoading}
-                  data-testid="enter-scenario"
-                >
-                  查看场景
-                  <ArrowIcon />
-                </button>
-              </div>
-            </>
-          )}
-        </aside>
       </section>
 
       <footer className="level-footer">
@@ -413,46 +320,6 @@ export function ScenarioSelect({
         </button>
       </footer>
     </main>
-  );
-}
-
-function FilterSection({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="filter-section">
-      <h2>{label}</h2>
-      <div>{children}</div>
-    </section>
-  );
-}
-
-function ToggleFilter({
-  label,
-  selected,
-  onToggle,
-  testId,
-}: {
-  label: string;
-  selected: boolean;
-  onToggle: () => void;
-  testId: string;
-}) {
-  return (
-    <button
-      type="button"
-      className={selected ? 'is-active' : ''}
-      aria-pressed={selected}
-      onClick={onToggle}
-      data-testid={testId}
-    >
-      <span>{label}</span>
-      <i aria-hidden="true" />
-    </button>
   );
 }
 
@@ -480,30 +347,6 @@ function SettingsIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 6h16M7 12h10M10 18h4" />
-    </svg>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg className="scenario-card__chevron" viewBox="0 0 24 24" aria-hidden>
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 12h14m-5-5 5 5-5 5" />
     </svg>
   );
 }

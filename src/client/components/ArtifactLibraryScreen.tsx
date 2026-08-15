@@ -59,7 +59,7 @@ export function ArtifactLibraryScreen({
         )}
         {runs.map((run, runIndex) => (
           <article
-            className="artifact-run"
+            className="artifact-run panel"
             key={run.id}
             data-testid="artifact-run"
           >

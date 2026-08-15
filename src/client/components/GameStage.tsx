@@ -164,7 +164,7 @@ export function GameStage({
         )}
       </section>
 
-      <section className="chat-stage" aria-label="对话">
+      <section className="chat-stage panel" aria-label="对话">
         <div
           className="relationship-progress"
           role="progressbar"

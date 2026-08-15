@@ -47,7 +47,7 @@ test('shows all eight open scenarios and filters by type and progress', async ({
   await expect(page.getByRole('heading', { name: '真实场景' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '自由表达' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '多模态演出' })).toBeVisible();
-  await expect(page.getByText('当前伴侣')).toBeVisible();
+  await expect(page.getByText('8 / 8 个场景')).toBeVisible();
   await expect(
     page.getByText('本机只保存完成记录、分身份最佳成绩和已见结局。'),
   ).toHaveCount(0);
@@ -73,7 +73,7 @@ test('shows all eight open scenarios and filters by type and progress', async ({
   await expect(page.getByText('没有符合条件的场景')).toBeVisible();
 });
 
-test('uses the new font system and selects a card before entering its briefing', async ({
+test('uses the new font system and enters a briefing straight from its card', async ({
   page,
 }) => {
   await page.goto('./');
@@ -108,10 +108,10 @@ test('uses the new font system and selects a card before entering its briefing',
         document.querySelector('.level-intro h1')!,
       ).fontFamily,
       card: getComputedStyle(
-        document.querySelector('.scenario-card__copy')!,
+        document.querySelector('.scenario-card__tags')!,
       ).fontFamily,
       scene: getComputedStyle(
-        document.querySelector('.scenario-preview h2')!,
+        document.querySelector('.scenario-card__title')!,
       ).fontFamily,
     };
   });
@@ -160,12 +160,8 @@ test('uses the new font system and selects a card before entering its briefing',
     ),
   ).toBe(true);
 
-  await page.getByTestId('scenario-card-rejected-proposal').click();
-  await expect(page.getByTestId('scenario-preview')).toContainText(
-    '提案被否',
-  );
   await expect(page.getByTestId('start-game')).toHaveCount(0);
-  await page.getByTestId('enter-scenario').click();
+  await page.getByTestId('scenario-card-rejected-proposal').click();
   await expect(page.getByTestId('start-game')).toBeVisible();
 });
 
@@ -248,7 +244,6 @@ test('selects modalities and requires an in-memory key for image generation', as
   await page.getByRole('button', { name: '关闭模态设置' }).click();
 
   await page.getByTestId('scenario-card-weekend-market').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('media-generation-progress')).toBeVisible();
   await expect(page.getByTestId('media-generation-progress')).toContainText(
@@ -332,7 +327,6 @@ test('does not show fake media progress when a refreshed page needs the key agai
 
   await page.goto('./');
   await page.getByTestId('scenario-card-rain-check').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
 
   await expect(page.getByTestId('media-generation-locked')).toBeVisible();
@@ -360,7 +354,6 @@ test('uses per-turn images and creates one whole-session memory film', async ({
   await page.getByTestId('unlock-media').click();
   await page.getByRole('button', { name: '关闭模态设置' }).click();
   await page.getByTestId('scenario-card-rain-check').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('generated-media-image')).toBeVisible({
     timeout: mediaGenerationTimeout,
@@ -382,9 +375,8 @@ test('uses per-turn images and creates one whole-session memory film', async ({
 
   await page.getByTestId('back-to-levels').click();
   await page.reload();
-  await page.getByTestId('scenario-card-rain-check').click();
-  await expect(page.getByTestId('scenario-card-rain-check')).toContainText(
-    '回忆 1',
+  await expect(page.getByTestId('open-artifact-library')).toContainText(
+    '查看回忆',
   );
   await page.getByTestId('open-artifact-library').click();
   await expect(page).toHaveURL(/\/scenarios\/rain-check\/memories$/);
@@ -416,7 +408,6 @@ test('enters and leaves a briefing and supports both player identities', async (
 }) => {
   await page.goto('./');
   await page.getByTestId('scenario-card-rejected-proposal').click();
-  await page.getByTestId('enter-scenario').click();
   await expect(page).toHaveURL(/\/scenarios\/rejected-proposal$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     '提案被否',
@@ -466,7 +457,6 @@ test('completes an invitation, keeps progress after refresh, and stores no dialo
   test.setTimeout(90_000);
   await page.goto('./');
   await page.getByTestId('scenario-card-weekend-market').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page).toHaveURL(
     /\/sessions\/[0-9a-f-]{36}$/,
@@ -537,7 +527,6 @@ test('plays a repair scenario to its authored S ending', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('./');
   await page.getByTestId('scenario-card-party-joke').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('choose-female').click();
   await page.getByTestId('start-game').click();
   await playUntilResult(page, repairStrongLine, 6);
@@ -648,7 +637,6 @@ test('keeps selection and gameplay usable at a mobile viewport', async ({
   await expect(page.getByTestId('output-mode-video')).toBeVisible();
   await page.getByRole('button', { name: '关闭模态设置' }).click();
   await page.getByTestId('scenario-card-rain-check').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
   await expect(page.getByTestId('dialogue-input')).toBeVisible();
 
@@ -663,7 +651,6 @@ test('keeps one progress bar, complete history, and the unified composer', async
 }) => {
   await page.goto('./');
   await page.getByTestId('scenario-card-weekend-market').click();
-  await page.getByTestId('enter-scenario').click();
   await page.getByTestId('start-game').click();
 
   await expect(page.getByRole('progressbar')).toHaveCount(1);

@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
-    name: Verify and Package
+  verify-and-deploy:
+    name: Verify and Deploy
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -51,29 +51,8 @@ jobs:
           tar -C release -czf release.tar.gz .
           tar -tzf release.tar.gz
 
-      - name: Upload release artifact
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: relationship-arena-release
-          path: release.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-  deploy:
-    name: Deploy Production
-    needs: verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: production
-    steps:
-      - name: Download release artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: relationship-arena-release
-
       - name: Deploy through restricted SSH command
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -100,6 +79,7 @@ jobs:
             "deploy $REVISION" < release.tar.gz
 
       - name: Smoke test production
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
@@ -111,5 +91,5 @@ jobs:
           grep -q '<div id="root">' /tmp/relationship-arena-index.html
 
       - name: Remove deploy key
-        if: always()
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: rm -f ~/.ssh/deploy_key

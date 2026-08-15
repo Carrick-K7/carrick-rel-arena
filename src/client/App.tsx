@@ -66,7 +66,6 @@ import {
   writeAppRoute,
   type AppRoute,
 } from './routing.js';
-import { defaultScenarioId } from './scenario-filters.js';
 import {
   speakLine,
   startSpeechInput,
@@ -96,11 +95,6 @@ export function App() {
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [playerGender, setPlayerGender] = useState<Gender>('male');
   const [briefing, setBriefing] = useState<ScenarioBriefing | null>(null);
-  const [selectedScenarioId, setSelectedScenarioId] =
-    useState<ScenarioId | null>(null);
-  const [selectedBriefing, setSelectedBriefing] =
-    useState<ScenarioBriefing | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
   const [progress, setProgress] = useState(loadProgress);
@@ -144,10 +138,7 @@ export function App() {
         if (!route) {
           writeAppRoute({ screen: 'select' }, { replace: true });
         }
-        void restoreRoute(
-          route ?? { screen: 'select' },
-          nextScenarios,
-        );
+        void restoreRoute(route ?? { screen: 'select' });
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -168,30 +159,11 @@ export function App() {
       if (!route) {
         writeAppRoute({ screen: 'select' }, { replace: true });
       }
-      void restoreRoute(route ?? { screen: 'select' }, scenarios);
+      void restoreRoute(route ?? { screen: 'select' });
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [progress.preferredGender, scenarios]);
-
-  useEffect(() => {
-    if (screen !== 'select' || !selectedScenarioId) return;
-    let active = true;
-    setPreviewLoading(true);
-    void getBriefing(selectedScenarioId, progress.preferredGender)
-      .then((nextBriefing) => {
-        if (active) setSelectedBriefing(nextBriefing);
-      })
-      .catch((loadError: unknown) => {
-        if (active) setError(errorMessage(loadError));
-      })
-      .finally(() => {
-        if (active) setPreviewLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [progress.preferredGender, screen, selectedScenarioId]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
@@ -520,10 +492,7 @@ export function App() {
     session,
   ]);
 
-  async function restoreRoute(
-    route: AppRoute,
-    availableScenarios: ScenarioSummary[],
-  ) {
+  async function restoreRoute(route: AppRoute) {
     const restoreId = routeRestoreRef.current + 1;
     routeRestoreRef.current = restoreId;
     stopSpeaking();
@@ -535,17 +504,11 @@ export function App() {
       setScreen('select');
       setBriefing(null);
       setArchiveScenarioId(null);
-      setSelectedScenarioId((current) =>
-        current && availableScenarios.some(({ id }) => id === current)
-          ? current
-          : defaultScenarioId(availableScenarios, progress),
-      );
       setRouteLoading(false);
       return;
     }
 
     if (route.screen === 'archive') {
-      setSelectedScenarioId(route.scenarioId);
       setArchiveScenarioId(route.scenarioId);
       setBriefing(null);
       setScreen('archive');
@@ -562,7 +525,6 @@ export function App() {
           gender,
         );
         if (routeRestoreRef.current !== restoreId) return;
-        setSelectedScenarioId(route.scenarioId);
         setPlayerGender(gender);
         setBriefing(nextBriefing);
         setArchiveScenarioId(null);
@@ -575,7 +537,6 @@ export function App() {
       if (routeRestoreRef.current !== restoreId) return;
       const actualScreen =
         nextSession.state.phase === 'result' ? 'result' : 'playing';
-      setSelectedScenarioId(nextSession.state.scenarioId);
       setPlayerGender(nextSession.state.playerGender);
       setBriefing(nextSession.briefing);
       setArchiveScenarioId(null);
@@ -604,9 +565,6 @@ export function App() {
       setBriefing(null);
       setArchiveScenarioId(null);
       setSession(null);
-      setSelectedScenarioId(
-        defaultScenarioId(availableScenarios, progress),
-      );
       writeAppRoute({ screen: 'select' }, { replace: true });
     } finally {
       if (routeRestoreRef.current === restoreId) {
@@ -615,30 +573,20 @@ export function App() {
     }
   }
 
-  function selectScenario(scenarioId: ScenarioId) {
-    setError(null);
-    setSelectedScenarioId(scenarioId);
-  }
-
-  async function enterSelectedScenario() {
-    if (!selectedScenarioId) return;
+  async function enterScenario(scenarioId: ScenarioId) {
     setBusy(true);
     setError(null);
     stopSpeaking();
     try {
       const gender = progress.preferredGender;
-      const nextBriefing =
-        selectedBriefing?.id === selectedScenarioId &&
-        selectedBriefing.player.gender === gender
-          ? selectedBriefing
-          : await getBriefing(selectedScenarioId, gender);
+      const nextBriefing = await getBriefing(scenarioId, gender);
       setPlayerGender(gender);
       setBriefing(nextBriefing);
       setSession(null);
       setScreen('briefing');
       writeAppRoute({
         screen: 'briefing',
-        scenarioId: selectedScenarioId,
+        scenarioId,
       });
     } catch (loadError) {
       setError(errorMessage(loadError));
@@ -1044,14 +992,10 @@ export function App() {
       <ScenarioSelect
         scenarios={scenarios}
         progress={progress}
-        selectedScenarioId={selectedScenarioId ?? scenarios[0].id}
-        selectedBriefing={selectedBriefing}
-        previewLoading={previewLoading}
         busy={busy}
         error={error}
         artifactCounts={artifactCounts}
-        onSelect={selectScenario}
-        onEnter={enterSelectedScenario}
+        onEnterScenario={enterScenario}
         onOpenArtifacts={openArtifactLibrary}
         onOpenSettings={() => setSettingsOpen(true)}
         onClearProgress={resetProgress}

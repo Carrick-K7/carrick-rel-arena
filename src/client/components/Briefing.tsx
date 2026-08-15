@@ -66,7 +66,7 @@ export function Briefing({
           </p>
           <h1>{briefing.title}</h1>
 
-          <div className="briefing-sections">
+          <div className="briefing-sections panel">
             <article className="briefing-section">
               <span>情景介绍</span>
               <h2>{briefing.timeAndPlace}</h2>
