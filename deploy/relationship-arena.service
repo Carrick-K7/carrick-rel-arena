@@ -7,13 +7,13 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/projects/relationship-arena
+WorkingDirectory=/srv/carrick/relationship-arena/current
 Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=3100
 EnvironmentFile=-/etc/relationship-arena/relationship-arena.env
 EnvironmentFile=-/etc/relationship-arena/relationship-arena-media.env
-ExecStart=/usr/bin/node /home/ubuntu/projects/relationship-arena/dist/server/server/index.js
+ExecStart=/usr/bin/node /srv/carrick/relationship-arena/current/dist/server/server/index.js
 Restart=on-failure
 RestartSec=5
 UMask=0027
@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/ubuntu/projects/relationship-arena/var
+ReadWritePaths=/var/lib/carrick/relationship-arena
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 StandardOutput=journal
 StandardError=journal
